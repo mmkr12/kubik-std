@@ -2,27 +2,27 @@ import { createClient } from '@/lib/supabase/server';
 import { Logo } from '@/components/logo';
 import { OrderCard } from '@/components/order-card';
 import { Instagram, Globe } from 'lucide-react';
-import type { Order } from '@/lib/types';
+import type { ERPRequest } from '@/lib/types';
 import Link from 'next/link';
 
 export const revalidate = 0;
 
-async function getActiveOrders(): Promise<Order[]> {
+async function getActiveRequests(): Promise<ERPRequest[]> {
   try {
     const supabase = createClient();
     const { data } = await supabase
-      .from('orders')
+      .from('requests')
       .select('*')
-      .eq('status', 'production')
+      .eq('status', 'in_production')
       .order('install_date', { ascending: true });
-    return (data as Order[]) ?? [];
+    return (data as ERPRequest[]) ?? [];
   } catch {
     return [];
   }
 }
 
 export default async function ProductionPage() {
-  const orders = await getActiveOrders();
+  const requests = await getActiveRequests();
 
   return (
     <main className="min-h-screen bg-navy-gradient">
@@ -36,14 +36,14 @@ export default async function ProductionPage() {
       </section>
 
       <section className="container-kubik pb-24">
-        {orders.length === 0 ? (
+        {requests.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center text-white/50">
             Сейчас нет заказов в производстве
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {orders.map((order) => (
-              <OrderCard key={order.id} order={order} />
+            {requests.map((request) => (
+              <OrderCard key={request.id} request={request} />
             ))}
           </div>
         )}

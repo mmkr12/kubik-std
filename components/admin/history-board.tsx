@@ -6,29 +6,29 @@ import { Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { formatDate } from '@/lib/utils';
-import type { Order } from '@/lib/types';
+import { formatDate, formatTenge } from '@/lib/utils';
+import type { ERPRequest } from '@/lib/types';
 
 export function HistoryBoard() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [requests, setRequests] = useState<ERPRequest[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
   const supabase = createClient();
 
-  async function loadOrders(search: string) {
+  async function loadRequests(search: string) {
     setLoading(true);
-    let req = supabase.from('orders').select('*').eq('status', 'done').order('finished_at', { ascending: false });
+    let req = supabase.from('requests').select('*').eq('status', 'done').order('finished_at', { ascending: false });
     if (search.trim()) {
-      req = req.or(`company_name.ilike.%${search}%,phone.ilike.%${search}%`);
+      req = req.or(`name.ilike.%${search}%,phone.ilike.%${search}%`);
     }
     const { data } = await req;
-    setOrders((data as Order[]) ?? []);
+    setRequests((data as ERPRequest[]) ?? []);
     setLoading(false);
   }
 
   useEffect(() => {
-    const timeout = setTimeout(() => loadOrders(query), 300);
+    const timeout = setTimeout(() => loadRequests(query), 300);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
@@ -47,20 +47,23 @@ export function HistoryBoard() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {loading && <p className="text-muted-foreground">Загрузка…</p>}
-        {!loading && orders.length === 0 && <p className="text-muted-foreground">Ничего не найдено</p>}
-        {orders.map((order) => (
-          <Card key={order.id} className="overflow-hidden">
+        {!loading && requests.length === 0 && <p className="text-muted-foreground">Ничего не найдено</p>}
+        {requests.map((request) => (
+          <Card key={request.id} className="overflow-hidden">
             <div className="relative aspect-video w-full bg-navy-800">
-              {order.finished_photo_url && (
-                <Image src={order.finished_photo_url} alt={order.company_name} fill className="object-cover" />
+              {request.finished_photo_url && (
+                <Image src={request.finished_photo_url} alt={request.name} fill className="object-cover" />
               )}
             </div>
             <CardContent className="space-y-1 pt-4">
-              <h3 className="font-semibold text-navy-900">{order.company_name}</h3>
-              <p className="text-sm text-muted-foreground">{order.phone}</p>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-navy-900">{request.name}</h3>
+                {request.total_cost > 0 && <span className="text-sm font-semibold text-navy-900">{formatTenge(request.total_cost)}</span>}
+              </div>
+              <p className="text-sm text-muted-foreground">{request.phone}</p>
               <div className="flex justify-between pt-1 text-xs text-muted-foreground">
-                {order.started_production_at && <span>Запуск: {formatDate(order.started_production_at)}</span>}
-                {order.install_date && <span>Монтаж: {formatDate(order.install_date)}</span>}
+                {request.started_production_at && <span>Запуск: {formatDate(request.started_production_at)}</span>}
+                {request.install_date && <span>Монтаж: {formatDate(request.install_date)}</span>}
               </div>
             </CardContent>
           </Card>
