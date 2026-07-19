@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 <html lang="ru">
 <head>
 <meta charset="UTF-8" />
-<title>Коммерческое предложение — KUBIK.std</title>
+<title>Коммерческое предложение — Kubik.std</title>
 <style>
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }

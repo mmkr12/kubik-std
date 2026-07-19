@@ -1,28 +1,35 @@
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { Logo } from '@/components/logo';
-import { OrderCard } from '@/components/order-card';
 import { Instagram, Globe } from 'lucide-react';
-import type { ERPRequest } from '@/lib/types';
-import Link from 'next/link';
+import { WorksGallery, type WorkItem } from '@/components/works-gallery';
 
 export const revalidate = 0;
 
-async function getActiveRequests(): Promise<ERPRequest[]> {
+async function getAllWorks(): Promise<WorkItem[]> {
   try {
     const supabase = createClient();
     const { data } = await supabase
       .from('requests')
-      .select('*')
-      .eq('status', 'in_production')
-      .order('install_date', { ascending: true });
-    return (data as ERPRequest[]) ?? [];
+      .select('id, name, finished_photo_url, finished_at, order_items(product_type:product_types(key,name))')
+      .eq('status', 'done')
+      .not('finished_photo_url', 'is', null)
+      .order('finished_at', { ascending: false });
+
+    return ((data as any[]) ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      photoUrl: r.finished_photo_url,
+      typeKey: r.order_items?.[0]?.product_type?.key ?? null,
+      typeName: r.order_items?.[0]?.product_type?.name ?? null,
+    }));
   } catch {
     return [];
   }
 }
 
-export default async function ProductionPage() {
-  const requests = await getActiveRequests();
+export default async function WorksPage() {
+  const works = await getAllWorks();
 
   return (
     <main className="min-h-screen bg-navy-gradient">
@@ -31,22 +38,12 @@ export default async function ProductionPage() {
       </header>
 
       <section className="container-kubik pb-10">
-        <h1 className="text-3xl font-bold text-white md:text-4xl">Производство онлайн</h1>
-        <p className="mt-2 text-white/50">Следите за изготовлением вашего заказа в реальном времени</p>
+        <h1 className="text-3xl font-bold text-white md:text-4xl">Наши работы</h1>
+        <p className="mt-2 text-white/50">Галерея завершённых проектов Kubik.std</p>
       </section>
 
       <section className="container-kubik pb-24">
-        {requests.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center text-white/50">
-            Сейчас нет заказов в производстве
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {requests.map((request) => (
-              <OrderCard key={request.id} request={request} />
-            ))}
-          </div>
-        )}
+        <WorksGallery works={works} />
       </section>
 
       <footer className="container-kubik flex items-center justify-between border-t border-white/10 py-8 text-xs text-white/40">
