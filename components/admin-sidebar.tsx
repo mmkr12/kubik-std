@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Ruler, Factory, History, Settings, LogOut, Users } from 'lucide-react';
+import { Ruler, Factory, History, Settings, LogOut, Users, Calculator } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 
 const NAV = [
   { href: '/admin/zamery', label: 'Замеры', icon: Ruler },
+  { href: '/admin/calculator', label: 'Калькулятор', icon: Calculator },
   { href: '/admin/production', label: 'Производство', icon: Factory },
   { href: '/admin/clients', label: 'Клиенты', icon: Users },
   { href: '/admin/history', label: 'История', icon: History },

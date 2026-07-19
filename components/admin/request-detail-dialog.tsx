@@ -7,9 +7,10 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { formatTenge, formatDate } from '@/lib/utils';
 import { suggestInstallDate } from '@/lib/scheduler';
-import { WorkItemForm, type NewItemDraft } from '@/components/admin/work-item-form';
+import { ProductCalculator, type CalculatorDraft } from '@/components/product-calculator';
 import type { ERPRequest, OrderItem, ProductType } from '@/lib/types';
 import type { ProductionSettingsRow } from '@/lib/erp-pricing';
 
@@ -27,11 +28,19 @@ export function RequestDetailDialog({
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [settings, setSettings] = useState<ProductionSettingsRow | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [installDate, setInstallDate] = useState(request.install_date ?? '');
-  const [suggesting, setSuggesting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+
+  // Редактируемые поля заявки — доступны на любой стадии, включая
+  // уже отправленные в производство заказы.
+  const [name, setName] = useState(request.name);
+  const [phone, setPhone] = useState(request.phone);
+  const [address, setAddress] = useState(request.address ?? '');
+  const [comment, setComment] = useState(request.comment ?? '');
+  const [installDate, setInstallDate] = useState(request.install_date ?? '');
 
   const supabase = createClient();
+  const isPreProduction = request.status === 'measurement' || request.status === 'draft';
 
   async function loadAll() {
     const [{ data: itemsData }, { data: typesData }, { data: settingsData }] = await Promise.all([
@@ -45,11 +54,18 @@ export function RequestDetailDialog({
   }
 
   useEffect(() => {
-    if (open) loadAll();
+    if (open) {
+      loadAll();
+      setName(request.name);
+      setPhone(request.phone);
+      setAddress(request.address ?? '');
+      setComment(request.comment ?? '');
+      setInstallDate(request.install_date ?? '');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  async function handleAddItem(draft: NewItemDraft) {
+  async function handleAddItem(draft: CalculatorDraft) {
     await supabase.from('order_items').insert({
       request_id: request.id,
       product_type_id: draft.productType.id,
@@ -99,9 +115,27 @@ export function RequestDetailDialog({
         .update({
           status: 'in_production',
           needs_measurement: false,
+          name, phone, address: address || null, comment: comment || null,
           install_date: installDate,
           manual_override: installDate !== request.recommended_install_date,
           started_production_at: new Date().toISOString(),
+        })
+        .eq('id', request.id);
+      setOpen(false);
+      onChanged();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSaveChanges() {
+    setSaving(true);
+    try {
+      await supabase
+        .from('requests')
+        .update({
+          name, phone, address: address || null, comment: comment || null,
+          install_date: installDate || null,
         })
         .eq('id', request.id);
       setOpen(false);
@@ -117,11 +151,28 @@ export function RequestDetailDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <span onClick={() => setOpen(true)}>{trigger}</span>
       <DialogContent className="max-w-xl">
-        <DialogTitle>{request.name}</DialogTitle>
-        <p className="mt-1 text-sm text-muted-foreground">{request.phone} {request.address ? `· ${request.address}` : ''}</p>
-        {request.comment && <p className="mt-2 text-sm text-navy-700">{request.comment}</p>}
+        <DialogTitle>{isPreProduction ? 'Оформление заявки' : 'Редактирование заказа'}</DialogTitle>
 
-        <div className="mt-4 space-y-2">
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>Имя клиента</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Телефон</Label>
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Адрес</Label>
+            <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Комментарий</Label>
+            <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} />
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-2">
           {items.length === 0 && <p className="text-sm text-muted-foreground">Пока нет ни одной позиции работ.</p>}
           {items.map((item) => {
             const type = productTypes.find((p) => p.id === item.product_type_id);
@@ -144,7 +195,7 @@ export function RequestDetailDialog({
 
         {showForm && settings ? (
           <div className="mt-4">
-            <WorkItemForm productTypes={productTypes} settings={settings} onAdd={handleAddItem} onCancel={() => setShowForm(false)} />
+            <ProductCalculator mode="item" productTypes={productTypes} settings={settings} onAdd={handleAddItem} onCancel={() => setShowForm(false)} />
           </div>
         ) : (
           <Button variant="outline" className="mt-4 w-full" onClick={() => setShowForm(true)}>
@@ -170,9 +221,15 @@ export function RequestDetailDialog({
           )}
         </div>
 
-        <Button className="mt-5 w-full" onClick={handleSendToProduction} disabled={items.length === 0 || !installDate || saving}>
-          {saving ? 'Сохраняем…' : 'Отправить в производство'}
-        </Button>
+        {isPreProduction ? (
+          <Button className="mt-5 w-full" onClick={handleSendToProduction} disabled={items.length === 0 || !installDate || saving}>
+            {saving ? 'Сохраняем…' : 'Отправить в производство'}
+          </Button>
+        ) : (
+          <Button className="mt-5 w-full" onClick={handleSaveChanges} disabled={saving}>
+            {saving ? 'Сохраняем…' : 'Сохранить изменения'}
+          </Button>
+        )}
       </DialogContent>
     </Dialog>
   );

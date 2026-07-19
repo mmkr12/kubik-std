@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, Wallet } from 'lucide-react';
+import { Search, Wallet, Pencil } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ClientEditDialog } from '@/components/admin/client-edit-dialog';
 import { formatTenge, formatDate } from '@/lib/utils';
 import type { ClientTotals } from '@/lib/types';
 
@@ -45,7 +47,18 @@ export function ClientsBoard() {
         {clients.map((client) => (
           <Card key={client.id}>
             <CardContent className="space-y-2 pt-5">
-              <h3 className="font-semibold text-navy-900">{client.name || 'Без имени'}</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-navy-900">{client.name || 'Без имени'}</h3>
+                <ClientEditDialog
+                  client={client}
+                  onChanged={() => loadClients(query)}
+                  trigger={
+                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
+                  }
+                />
+              </div>
               <p className="text-sm text-muted-foreground">{client.phone}</p>
               <div className="flex items-center justify-between rounded-lg bg-mist-50 px-3 py-2">
                 <span className="flex items-center gap-1 text-sm text-muted-foreground">

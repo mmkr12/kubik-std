@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { Check, ImagePlus } from 'lucide-react';
+import { Check, ImagePlus, Pencil } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { uploadImage } from '@/lib/storage';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { RequestDetailDialog } from '@/components/admin/request-detail-dialog';
 import { formatTenge, formatDate } from '@/lib/utils';
 import type { ERPRequest } from '@/lib/types';
 
@@ -86,10 +87,10 @@ export function ProductionCalendar() {
   return (
     <div className="space-y-8">
       {weeks.noDate.length > 0 && (
-        <WeekRow title="Без даты монтажа" items={weeks.noDate} onOpenFinish={setActiveRequest} />
+        <WeekRow title="Без даты монтажа" items={weeks.noDate} onOpenFinish={setActiveRequest} onChanged={loadRequests} />
       )}
       {weeks.sortedWeeks.map(([weekStart, items], index) => (
-        <WeekRow key={weekStart} title={weekLabel(weekStart, index)} items={items} onOpenFinish={setActiveRequest} />
+        <WeekRow key={weekStart} title={weekLabel(weekStart, index)} items={items} onOpenFinish={setActiveRequest} onChanged={loadRequests} />
       ))}
 
       <Dialog open={!!activeRequest} onOpenChange={(open) => !open && setActiveRequest(null)}>
@@ -116,10 +117,12 @@ function WeekRow({
   title,
   items,
   onOpenFinish,
+  onChanged,
 }: {
   title: string;
   items: ERPRequest[];
   onOpenFinish: (r: ERPRequest) => void;
+  onChanged: () => void;
 }) {
   return (
     <div>
@@ -140,9 +143,20 @@ function WeekRow({
                 {request.total_cost > 0 && <span className="font-semibold text-navy-900">{formatTenge(request.total_cost)}</span>}
                 {request.install_date && <span className="text-muted-foreground">{formatDate(request.install_date)}</span>}
               </div>
-              <Button className="mt-3 w-full" size="sm" onClick={() => onOpenFinish(request)}>
-                <Check className="mr-1 h-4 w-4" /> ГОТОВО
-              </Button>
+              <div className="flex gap-2 pt-3">
+                <RequestDetailDialog
+                  request={request}
+                  onChanged={onChanged}
+                  trigger={
+                    <Button variant="secondary" size="sm" className="w-full">
+                      <Pencil className="mr-1 h-3.5 w-3.5" /> Изменить
+                    </Button>
+                  }
+                />
+                <Button size="sm" className="w-full" onClick={() => onOpenFinish(request)}>
+                  <Check className="mr-1 h-4 w-4" /> ГОТОВО
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}

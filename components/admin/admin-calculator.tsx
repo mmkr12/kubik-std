@@ -6,14 +6,15 @@ import { ProductCalculator } from '@/components/product-calculator';
 import type { ProductType } from '@/lib/types';
 import type { ProductionSettingsRow } from '@/lib/erp-pricing';
 
-export function Calculator() {
+export function AdminCalculator() {
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [settings, setSettings] = useState<ProductionSettingsRow | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const supabase = createClient();
+
   useEffect(() => {
     (async () => {
-      const supabase = createClient();
       const [{ data: types }, { data: settingsData }] = await Promise.all([
         supabase.from('product_types').select('*').eq('active', true).order('sort_order'),
         supabase.from('production_settings').select('*').single(),
@@ -22,18 +23,17 @@ export function Calculator() {
       setSettings((settingsData as ProductionSettingsRow) ?? null);
       setLoading(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return (
-    <div id="calculator" className="rounded-2xl border border-border bg-white p-6 card-shadow md:p-8">
-      <h3 className="mb-1 text-xl font-semibold text-navy-900">Рассчитайте стоимость вашей вывески</h3>
-      <p className="mb-6 text-sm text-muted-foreground">Получите расчёт и коммерческое предложение за 1 минуту</p>
+  if (loading || !settings) return <p className="text-muted-foreground">Загрузка…</p>;
 
-      {loading || !settings || productTypes.length === 0 ? (
-        <p className="text-muted-foreground">Загрузка калькулятора…</p>
-      ) : (
-        <ProductCalculator mode="public" productTypes={productTypes} settings={settings} />
-      )}
+  return (
+    <div className="max-w-xl">
+      <p className="mb-4 text-sm text-muted-foreground">
+        Тот же калькулятор, что на сайте и внутри заявки — можно быстро прикинуть стоимость без создания заявки.
+      </p>
+      <ProductCalculator mode="public" productTypes={productTypes} settings={settings} />
     </div>
   );
 }
