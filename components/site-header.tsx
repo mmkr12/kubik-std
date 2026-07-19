@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
+import { Phone, Instagram } from 'lucide-react';
 
 const links = [
   { href: '#about', label: 'О нас' },
@@ -27,7 +28,24 @@ export function SiteHeader() {
             </a>
           ))}
         </nav>
-        <span className="hidden text-sm text-muted-foreground md:block">kubikstd.kz</span>
+        <div className="hidden items-center gap-4 md:flex">
+          <a
+            href="https://wa.me/77077750011"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-blue-600"
+          >
+            <Phone className="h-3.5 w-3.5" /> +7 707 775 00 11
+          </a>
+          <a
+            href="https://www.instagram.com/kubik.std"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted-foreground transition-colors hover:text-blue-600"
+          >
+            <Instagram className="h-4 w-4" />
+          </a>
+        </div>
       </div>
     </header>
   );

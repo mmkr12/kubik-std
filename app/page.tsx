@@ -5,7 +5,7 @@ import { Logo } from '@/components/logo';
 import { Calculator } from '@/components/calculator';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/server';
-import { Instagram, Globe, Factory, Printer, MousePointerClick, Truck, Zap } from 'lucide-react';
+import { Instagram, Factory, Printer, MousePointerClick, Truck, Zap, Phone, Send, Music2, Youtube } from 'lucide-react';
 
 const ABOUT_ITEMS = [
   { icon: Factory, title: 'Собственное производство', text: 'Полный цикл изготовления вывесок — от эскиза до монтажа' },
@@ -13,6 +13,37 @@ const ABOUT_ITEMS = [
   { icon: MousePointerClick, title: 'Оформление заказа онлайн без менеджера', text: 'Рассчитайте стоимость и оформите заявку прямо на сайте', href: '#calculator' },
   { icon: Truck, title: 'Отправка по СНГ, монтаж в трёх областях', text: 'Работаем по всему Казахстану и СНГ, монтаж — Тараз, Шымкент, Алматы' },
   { icon: Zap, title: 'Срочное изготовление за доплату', text: 'Если нужна скорость — сделаем вне очереди и без сдвига графика остальных заказов' },
+];
+
+const COMPANIES = [
+  {
+    name: 'Kubik.std',
+    tagline: 'система продвижения бизнеса',
+    links: [
+      { icon: Phone, label: '+7 707 775 00 11', href: 'https://wa.me/77077750011' },
+      { icon: Send, label: 'Telegram', href: 'https://t.me/kubikstd' },
+      { icon: Instagram, label: 'Instagram', href: 'https://www.instagram.com/kubik.std' },
+      { icon: Music2, label: 'TikTok', href: 'https://vt.tiktok.com/ZSXxhHndn/' },
+      { icon: Youtube, label: 'YouTube', href: 'https://youtube.com/@kubikstd?si=NsxadCL1ovBQgTsH' },
+    ],
+  },
+  {
+    name: 'Sunday',
+    tagline: 'производство 3D оборудования',
+    links: [
+      { icon: Phone, label: '+7 778 814 23 69', href: 'https://wa.me/77788142369' },
+      { icon: Send, label: 'Telegram', href: 'https://t.me/sunday3d' },
+      { icon: Instagram, label: 'Instagram', href: 'https://www.instagram.com/sunday.st' },
+    ],
+  },
+  {
+    name: 'QADAM',
+    tagline: 'рекламно-производственная компания',
+    links: [
+      { icon: Phone, label: '+7 747 445 12 03', href: 'https://wa.me/77474451203' },
+      { icon: Instagram, label: 'Instagram', href: 'https://www.instagram.com/qadam.reklam' },
+    ],
+  },
 ];
 
 interface WorkPreview {
@@ -144,19 +175,30 @@ export default async function HomePage() {
 
       {/* CONTACTS */}
       <footer id="contacts" className="bg-navy-gradient py-14">
-        <div className="container-kubik flex flex-col items-start justify-between gap-8 md:flex-row md:items-center">
-          <div>
-            <Logo dark />
-            <div className="mt-4 space-y-1 text-sm text-white/70">
-              <a href="https://instagram.com/kubik.std" className="flex items-center gap-2 hover:text-white">
-                <Instagram className="h-4 w-4" /> kubik.std
-              </a>
-              <a href="https://kubikstd.kz" className="flex items-center gap-2 hover:text-white">
-                <Globe className="h-4 w-4" /> kubikstd.kz
-              </a>
-            </div>
+        <div className="container-kubik">
+          <Logo dark className="mb-10" />
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
+            {COMPANIES.map((company) => (
+              <div key={company.name}>
+                <h3 className="text-base font-semibold text-white">{company.name}</h3>
+                <p className="mt-1 text-sm text-white/50">{company.tagline}</p>
+                <div className="mt-4 space-y-2">
+                  {company.links.map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-white"
+                    >
+                      <link.icon className="h-4 w-4 shrink-0" /> {link.label}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
-          <p className="text-xs text-white/40">© {new Date().getFullYear()} Kubik.std</p>
+          <p className="mt-12 text-xs text-white/40">© {new Date().getFullYear()} Kubik.std</p>
         </div>
       </footer>
     </main>
