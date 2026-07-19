@@ -3,6 +3,9 @@ import Link from 'next/link';
 import { SiteHeader } from '@/components/site-header';
 import { Logo } from '@/components/logo';
 import { Calculator } from '@/components/calculator';
+import { HeroCarousel } from '@/components/hero-carousel';
+import { TypesGallery } from '@/components/types-gallery';
+import { MeasurementRequestDialog } from '@/components/measurement-request-dialog';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/server';
 import { Instagram, Factory, Printer, MousePointerClick, Truck, Zap, Phone, Send, Music2, Youtube } from 'lucide-react';
@@ -95,14 +98,16 @@ export default async function HomePage() {
             <Button size="lg" asChild>
               <a href="#calculator">Рассчитать стоимость</a>
             </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href="/production">Производство онлайн</Link>
-            </Button>
+            <MeasurementRequestDialog
+              trigger={
+                <Button size="lg" variant="outline">
+                  Сделать замеры
+                </Button>
+              }
+            />
           </div>
         </div>
-        <div className="relative aspect-[4/3] overflow-hidden rounded-2xl card-shadow">
-          <Image src="/hero-illustration.svg" alt="Kubik.std — производство вывесок" fill className="object-cover" priority />
-        </div>
+        <HeroCarousel />
       </section>
 
       {/* ABOUT */}
@@ -166,6 +171,15 @@ export default async function HomePage() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* TYPES */}
+      <section className="container-kubik py-16">
+        <h2 className="text-2xl font-bold text-navy-900 md:text-3xl">Типы вывесок</h2>
+        <p className="mt-2 text-muted-foreground">Нажмите на карточку, чтобы увидеть примеры наших работ</p>
+        <div className="mt-8">
+          <TypesGallery />
+        </div>
       </section>
 
       {/* CALCULATOR */}
