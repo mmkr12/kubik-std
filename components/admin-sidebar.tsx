@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Ruler, Factory, History, Settings, LogOut, Users, Calculator } from 'lucide-react';
+import { Ruler, Factory, History, Settings, LogOut, Users, Calculator, UserCog, ShieldCheck, Wallet, ShoppingCart, ClipboardList } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,12 @@ const NAV = [
   { href: '/admin/production', label: 'Производство', icon: Factory },
   { href: '/admin/clients', label: 'Клиенты', icon: Users },
   { href: '/admin/history', label: 'История', icon: History },
+  { href: '/admin/staff', label: 'Сотрудники', icon: UserCog },
+  { href: '/admin/roles', label: 'Роли и оплата', icon: ShieldCheck },
+  { href: '/admin/templates', label: 'Техкарты', icon: ClipboardList },
+  { href: '/admin/payroll', label: 'Зарплата', icon: Wallet },
+  { href: '/admin/procurement', label: 'Закупки', icon: ShoppingCart },
+  { href: '/admin/regulations', label: 'Регламент', icon: ClipboardList },
   { href: '/admin/settings', label: 'Настройки', icon: Settings },
 ];
 
@@ -29,7 +35,7 @@ export function AdminSidebar() {
 
   return (
     <aside className="flex h-screen w-60 flex-col justify-between border-r border-border bg-white px-4 py-6">
-      <div>
+      <div className="overflow-y-auto">
         <Link href="/" className="mb-8 block px-2">
           <Logo />
         </Link>

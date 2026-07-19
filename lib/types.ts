@@ -113,3 +113,130 @@ export interface ERPRequest {
   started_production_at: string | null;
   finished_at: string | null;
 }
+
+// ---------------------------------------------------------------------
+// Сотрудники, роли, техкарты, операции, зарплаты
+// ---------------------------------------------------------------------
+
+export type PayrollMethod = 'fixed' | 'percent' | 'hourly';
+
+export interface Role {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  responsibilities: string | null;
+  payroll_method: PayrollMethod;
+  payroll_rate: number;
+  active: boolean;
+}
+
+export type EmployeeStatus = 'working' | 'vacation' | 'fired';
+
+export interface Employee {
+  id: string;
+  auth_user_id: string | null;
+  full_name: string;
+  photo_url: string | null;
+  phone: string | null;
+  hire_date: string | null;
+  status: EmployeeStatus;
+  is_admin: boolean;
+  created_at: string;
+}
+
+export interface EmployeeRole {
+  id: string;
+  employee_id: string;
+  role_id: string;
+  assigned_at: string;
+  unassigned_at: string | null;
+  role?: Role;
+}
+
+export interface OperationTemplate {
+  id: string;
+  product_type_id: string;
+  key: string;
+  name: string;
+  role_id: string | null;
+  default_employee_id: string | null;
+  cost: number;
+  norm_hours: number;
+  required: boolean;
+  allows_parallel: boolean;
+  depends_on_keys: string[];
+  sort_order: number;
+}
+
+export type OperationStatus = 'locked' | 'available' | 'in_progress' | 'done';
+
+export interface OrderOperation {
+  id: string;
+  order_item_id: string;
+  operation_template_id: string | null;
+  key: string;
+  name: string;
+  role_id: string | null;
+  assigned_employee_id: string | null;
+  cost: number;
+  norm_hours: number;
+  required: boolean;
+  allows_parallel: boolean;
+  depends_on_keys: string[];
+  status: OperationStatus;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface PayrollAccrual {
+  id: string;
+  employee_id: string;
+  role_id: string | null;
+  order_operation_id: string | null;
+  request_id: string | null;
+  amount: number;
+  accrued_at: string;
+  status: 'pending' | 'paid';
+  paid_at: string | null;
+  payout_id: string | null;
+}
+
+export interface Material {
+  id: string;
+  name: string;
+  unit: string;
+  active: boolean;
+  sort_order: number;
+}
+
+export interface ProcurementChecklist {
+  id: string;
+  week_start: string;
+  status: 'draft' | 'printed';
+  created_at: string;
+}
+
+export interface ProcurementChecklistItem {
+  id: string;
+  checklist_id: string;
+  material_id: string | null;
+  quantity_needed: number;
+  note: string | null;
+  material?: Material;
+}
+
+export interface MondayChecklistItem {
+  id: string;
+  title: string;
+  sort_order: number;
+  active: boolean;
+}
+
+export interface CorporateEvent {
+  id: string;
+  title: string;
+  event_date: string;
+  description: string | null;
+}

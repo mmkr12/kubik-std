@@ -66,17 +66,51 @@ export function RequestDetailDialog({
   }, [open]);
 
   async function handleAddItem(draft: CalculatorDraft) {
-    await supabase.from('order_items').insert({
-      request_id: request.id,
-      product_type_id: draft.productType.id,
-      params: draft.params,
-      manufacture_hours: draft.manufactureHours,
-      install_complexity: draft.installComplexity,
-      install_city: draft.installCity,
-      sunday_client_requested: draft.sundayClientRequested,
-      item_cost: draft.itemCost,
-      install_cost: draft.installCost,
-    });
+    const { data: newItem } = await supabase
+      .from('order_items')
+      .insert({
+        request_id: request.id,
+        product_type_id: draft.productType.id,
+        params: draft.params,
+        manufacture_hours: draft.manufactureHours,
+        install_complexity: draft.installComplexity,
+        install_city: draft.installCity,
+        sunday_client_requested: draft.sundayClientRequested,
+        item_cost: draft.itemCost,
+        install_cost: draft.installCost,
+      })
+      .select('id')
+      .single();
+
+    // Создаём цепочку операций из техкарты этого типа изделия —
+    // операции без зависимостей стартуют сразу как "available".
+    if (newItem) {
+      const { data: templates } = await supabase
+        .from('operation_templates')
+        .select('*')
+        .eq('product_type_id', draft.productType.id)
+        .order('sort_order');
+
+      if (templates && templates.length > 0) {
+        await supabase.from('order_operations').insert(
+          templates.map((t: any) => ({
+            order_item_id: newItem.id,
+            operation_template_id: t.id,
+            key: t.key,
+            name: t.name,
+            role_id: t.role_id,
+            assigned_employee_id: t.default_employee_id,
+            cost: t.cost,
+            norm_hours: t.norm_hours,
+            required: t.required,
+            allows_parallel: t.allows_parallel,
+            depends_on_keys: t.depends_on_keys,
+            status: t.depends_on_keys?.length ? 'locked' : 'available',
+          }))
+        );
+      }
+    }
+
     setShowForm(false);
     loadAll();
     onChanged();
