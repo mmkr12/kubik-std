@@ -6,11 +6,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { ProductType } from '@/lib/types';
+import type { ProductType, ProductCategory } from '@/lib/types';
 import type { ProductionSettingsRow } from '@/lib/erp-pricing';
 
 export function SettingsERP() {
   const [types, setTypes] = useState<ProductType[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [showAddType, setShowAddType] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+  const [newTypeCategoryId, setNewTypeCategoryId] = useState('');
+  const [newTypeUnit, setNewTypeUnit] = useState<'m2' | 'pcs'>('m2');
   const [settings, setSettings] = useState<ProductionSettingsRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -18,21 +24,67 @@ export function SettingsERP() {
 
   const supabase = createClient();
 
+  async function loadAll() {
+    const [{ data: typesData }, { data: catsData }, { data: settingsData }] = await Promise.all([
+      supabase.from('product_types').select('*').order('sort_order'),
+      supabase.from('product_categories').select('*').order('sort_order'),
+      supabase.from('production_settings').select('*').single(),
+    ]);
+    setTypes((typesData as ProductType[]) ?? []);
+    setCategories((catsData as ProductCategory[]) ?? []);
+    setSettings((settingsData as ProductionSettingsRow) ?? null);
+    setLoading(false);
+  }
+
   useEffect(() => {
-    (async () => {
-      const [{ data: typesData }, { data: settingsData }] = await Promise.all([
-        supabase.from('product_types').select('*').order('sort_order'),
-        supabase.from('production_settings').select('*').single(),
-      ]);
-      setTypes((typesData as ProductType[]) ?? []);
-      setSettings((settingsData as ProductionSettingsRow) ?? null);
-      setLoading(false);
-    })();
+    loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function updateType(id: string, patch: Partial<ProductType>) {
     setTypes((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  }
+
+  async function toggleTypeActive(t: ProductType) {
+    await supabase.from('product_types').update({ active: !t.active }).eq('id', t.id);
+    loadAll();
+  }
+
+  async function toggleCategoryActive(c: ProductCategory) {
+    await supabase.from('product_categories').update({ active: !c.active }).eq('id', c.id);
+    loadAll();
+  }
+
+  async function renameCategory(id: string, name: string) {
+    await supabase.from('product_categories').update({ name }).eq('id', id);
+  }
+
+  async function addCategory() {
+    if (!newCategoryName.trim()) return;
+    const key = newCategoryName.trim().toLowerCase().replace(/[^a-zа-я0-9]+/gi, '_');
+    await supabase.from('product_categories').insert({ key: `${key}_${Date.now()}`, name: newCategoryName, sort_order: categories.length + 1 });
+    setNewCategoryName('');
+    loadAll();
+  }
+
+  async function addProductType() {
+    if (!newTypeName.trim() || !newTypeCategoryId) return;
+    const key = `${newTypeName.trim().toLowerCase().replace(/[^a-zа-я0-9]+/gi, '_')}_${Date.now()}`;
+    await supabase.from('product_types').insert({
+      key,
+      name: newTypeName,
+      unit: newTypeUnit,
+      category_id: newTypeCategoryId,
+      install_mode: 'manual',
+      schedule_days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+      norms: [],
+      needs_review: true,
+      sort_order: types.length + 1,
+    });
+    setNewTypeName('');
+    setNewTypeCategoryId('');
+    setShowAddType(false);
+    loadAll();
   }
 
   function updateNormField(typeId: string, index: number, field: 'manufacture_hours_min' | 'manufacture_hours_max', value: number) {
@@ -81,8 +133,55 @@ export function SettingsERP() {
   return (
     <div className="max-w-2xl space-y-6">
       <Card>
+        <CardContent className="space-y-3 pt-5">
+          <h2 className="font-semibold text-navy-900">Категории продукции</h2>
+          {categories.map((c) => (
+            <div key={c.id} className="flex items-center gap-3">
+              <Input
+                defaultValue={c.name}
+                onBlur={(e) => renameCategory(c.id, e.target.value)}
+                className="flex-1"
+              />
+              <button
+                onClick={() => toggleCategoryActive(c)}
+                className={`rounded-full px-3 py-1 text-xs font-medium ${c.active ? 'bg-emerald-50 text-emerald-700' : 'bg-mist-100 text-muted-foreground'}`}
+              >
+                {c.active ? 'Включена' : 'Скрыта'}
+              </button>
+            </div>
+          ))}
+          <div className="flex gap-2 pt-1">
+            <Input placeholder="Новая категория…" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} className="flex-1" />
+            <Button size="sm" onClick={addCategory}>Добавить</Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardContent className="space-y-5 pt-5">
-          <h2 className="font-semibold text-navy-900">Типы изделий и нормативы времени</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-navy-900">Типы изделий и нормативы времени</h2>
+            <Button size="sm" variant="outline" onClick={() => setShowAddType(!showAddType)}>Добавить изделие</Button>
+          </div>
+
+          {showAddType && (
+            <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
+              <Input placeholder="Название изделия" value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} />
+              <div className="flex gap-2">
+                <select value={newTypeCategoryId} onChange={(e) => setNewTypeCategoryId(e.target.value)} className="h-10 flex-1 rounded-lg border border-border bg-white px-3 text-sm">
+                  <option value="">Категория…</option>
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <select value={newTypeUnit} onChange={(e) => setNewTypeUnit(e.target.value as 'm2' | 'pcs')} className="h-10 rounded-lg border border-border bg-white px-3 text-sm">
+                  <option value="m2">По площади (м²)</option>
+                  <option value="pcs">Поштучно</option>
+                </select>
+              </div>
+              <Button size="sm" onClick={addProductType}>Создать</Button>
+              <p className="text-xs text-muted-foreground">Нормативы и цену можно будет задать сразу после создания, ниже в списке.</p>
+            </div>
+          )}
+
           {types.map((t) => (
             <div key={t.id} className="space-y-2 rounded-lg border border-border p-3">
               <div className="flex items-center justify-between">
@@ -90,6 +189,12 @@ export function SettingsERP() {
                   {t.name}{t.needs_review && <span className="ml-2 text-xs text-amber-600">требует уточнения</span>}
                 </span>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleTypeActive(t)}
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${t.active ? 'bg-emerald-50 text-emerald-700' : 'bg-mist-100 text-muted-foreground'}`}
+                  >
+                    {t.active ? 'Показано' : 'Скрыто'}
+                  </button>
                   <span className="text-xs text-muted-foreground">цена за {t.unit === 'm2' ? 'м²' : 'шт'}</span>
                   <Input
                     type="number"

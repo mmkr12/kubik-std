@@ -62,8 +62,18 @@ export interface ProductTypeNorm {
   install_hours_max: number | null;
 }
 
+export interface ProductCategory {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  sort_order: number;
+  active: boolean;
+}
+
 export interface ProductType {
   id: string;
+  category_id: string | null;
   key: string;
   name: string;
   unit: 'm2' | 'pcs';

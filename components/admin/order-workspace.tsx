@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatTenge, formatDate } from '@/lib/utils';
 import { suggestInstallDate } from '@/lib/scheduler';
 import { ProductCalculator, type CalculatorDraft } from '@/components/product-calculator';
-import type { ERPRequest, OrderItem, ProductType, Payment, RequestMaterial, Material, ProductTypeField, ProductTypeMaterial } from '@/lib/types';
+import type { ERPRequest, OrderItem, ProductType, ProductCategory, Payment, RequestMaterial, Material, ProductTypeField, ProductTypeMaterial } from '@/lib/types';
 import type { ProductionSettingsRow } from '@/lib/erp-pricing';
 
 // Общий «конструктор заказа» — используется и при первом создании заявки
@@ -19,6 +19,7 @@ import type { ProductionSettingsRow } from '@/lib/erp-pricing';
 export function OrderWorkspace({ requestId, onChanged }: { requestId: string; onChanged: () => void }) {
   const [items, setItems] = useState<OrderItem[]>([]);
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [settings, setSettings] = useState<ProductionSettingsRow | null>(null);
   const [fields, setFields] = useState<ProductTypeField[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -32,10 +33,11 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
   const supabase = createClient();
 
   async function loadAll() {
-    const [{ data: reqData }, { data: itemsData }, { data: typesData }, { data: settingsData }, { data: fieldsData }, { data: paymentsData }, { data: matCatalog }, { data: reqMats }] = await Promise.all([
+    const [{ data: reqData }, { data: itemsData }, { data: typesData }, { data: catsData }, { data: settingsData }, { data: fieldsData }, { data: paymentsData }, { data: matCatalog }, { data: reqMats }] = await Promise.all([
       supabase.from('requests').select('*').eq('id', requestId).single(),
       supabase.from('order_items').select('*').eq('request_id', requestId).order('created_at'),
       supabase.from('product_types').select('*').eq('active', true).order('sort_order'),
+      supabase.from('product_categories').select('*').eq('active', true).order('sort_order'),
       supabase.from('production_settings').select('*').single(),
       supabase.from('product_type_fields').select('*').order('sort_order'),
       supabase.from('payments').select('*').eq('request_id', requestId).order('paid_at', { ascending: false }),
@@ -45,6 +47,7 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
     setRequest(reqData as ERPRequest);
     setItems((itemsData as OrderItem[]) ?? []);
     setProductTypes((typesData as ProductType[]) ?? []);
+    setCategories((catsData as ProductCategory[]) ?? []);
     setSettings((settingsData as ProductionSettingsRow) ?? null);
     setFields((fieldsData as ProductTypeField[]) ?? []);
     setPayments((paymentsData as Payment[]) ?? []);
@@ -193,7 +196,7 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
 
       {showForm ? (
         <div className="mt-4">
-          <ProductCalculator mode="item" productTypes={productTypes} settings={settings} onAdd={handleAddItem} onCancel={() => setShowForm(false)} />
+          <ProductCalculator mode="item" categories={categories} productTypes={productTypes} settings={settings} onAdd={handleAddItem} onCancel={() => setShowForm(false)} />
         </div>
       ) : (
         <Button variant="outline" className="mt-4 w-full" onClick={() => setShowForm(true)}>
