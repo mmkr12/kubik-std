@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
           <div class="valid">до ${validUntil.toLocaleString('ru-RU')}</div>
         </div>
         <div class="qr">
-          <img src="/brand/kaspi-qr.svg" alt="Kaspi QR" />
+          <img src="/brand/kaspi-qr.png" alt="Kaspi QR" />
           <p>Kaspi Pay<br />+7 707 775 00 11</p>
         </div>
       </div>
