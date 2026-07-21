@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Ruler, Factory, History, Settings, LogOut, Users, Calculator, UserCog, ShieldCheck, Wallet, ShoppingCart, ClipboardList, Landmark } from 'lucide-react';
+import { Ruler, Factory, History, Settings, LogOut, Users, Calculator, UserCog, ShieldCheck, Wallet, ShoppingCart, ClipboardList, Landmark, Package } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,7 @@ const NAV = [
   { href: '/admin/templates', label: 'Техкарты', icon: ClipboardList },
   { href: '/admin/payroll', label: 'Зарплата', icon: Wallet },
   { href: '/admin/finances', label: 'Финансы', icon: Landmark },
+  { href: '/admin/materials', label: 'База материалов', icon: Package },
   { href: '/admin/procurement', label: 'Закупки', icon: ShoppingCart },
   { href: '/admin/regulations', label: 'Регламент', icon: ClipboardList },
   { href: '/admin/settings', label: 'Настройки', icon: Settings },

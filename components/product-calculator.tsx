@@ -17,6 +17,8 @@ export interface CalculatorDraft {
   sundayClientRequested: boolean;
   itemCost: number;
   installCost: number;
+  finalCost: number;
+  adjustmentComment: string | null;
 }
 
 // Единый калькулятор — используется и на публичном сайте, и внутри
@@ -45,6 +47,8 @@ export function ProductCalculator({
   const [city, setCity] = useState<InstallCity>('taraz');
   const [complexity, setComplexity] = useState<InstallComplexity>('light');
   const [sundayRequested, setSundayRequested] = useState(false);
+  const [priceOverride, setPriceOverride] = useState<string>('');
+  const [adjustmentComment, setAdjustmentComment] = useState('');
 
   const productType = productTypes.find((p) => p.key === productKey) ?? productTypes[0];
 
@@ -66,6 +70,8 @@ export function ProductCalculator({
   if (!productType || !preview) return null;
 
   function buildDraft(): CalculatorDraft {
+    const calculated = preview!.itemCost + preview!.installCost;
+    const finalCost = priceOverride !== '' ? Number(priceOverride) : calculated;
     return {
       productType,
       params: productType.unit === 'm2' ? { widthM, heightM } : { count },
@@ -75,6 +81,8 @@ export function ProductCalculator({
       sundayClientRequested: sundayRequested,
       itemCost: preview!.itemCost,
       installCost: preview!.installCost,
+      finalCost,
+      adjustmentComment: finalCost !== calculated ? (adjustmentComment || null) : null,
     };
   }
 
@@ -147,11 +155,32 @@ export function ProductCalculator({
         </div>
       )}
 
-      <div className="flex flex-col gap-2 rounded-lg bg-white px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-muted-foreground">
-          Изделие: {formatTenge(preview.itemCost)} · Монтаж: {preview.installCost > 0 ? formatTenge(preview.installCost) : 'в цене'}
-        </span>
-        <span className="text-lg font-bold text-navy-900">{formatTenge(preview.itemCost + preview.installCost)}</span>
+      <div className="flex flex-col gap-2 rounded-lg bg-white px-4 py-3 text-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-muted-foreground">
+            Изделие: {formatTenge(preview.itemCost)} · Монтаж: {preview.installCost > 0 ? formatTenge(preview.installCost) : 'в цене'}
+          </span>
+          <span className="text-lg font-bold text-navy-900">
+            Расчётная: {formatTenge(preview.itemCost + preview.installCost)}
+          </span>
+        </div>
+        {mode === 'item' && (
+          <div className="grid grid-cols-1 gap-2 border-t border-border pt-2 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Итоговая цена (можно скорректировать)</Label>
+              <Input
+                type="number"
+                placeholder={String(preview.itemCost + preview.installCost)}
+                value={priceOverride}
+                onChange={(e) => setPriceOverride(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Причина скидки/наценки (если меняли цену)</Label>
+              <Input value={adjustmentComment} onChange={(e) => setAdjustmentComment(e.target.value)} placeholder="Скидка постоянному клиенту…" />
+            </div>
+          </div>
+        )}
       </div>
 
       {mode === 'item' ? (

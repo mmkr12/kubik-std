@@ -14,7 +14,9 @@ import type { ERPRequest } from '@/lib/types';
 export function RequestsBoard() {
   const [requests, setRequests] = useState<ERPRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openId, setOpenId] = useState<string | null>(null);
+  // Открытая заявка живёт отдельно от списка — иначе как только статус
+  // меняется и карточка пропадает из отфильтрованного списка "Замеры",
+  // вместе с ней размонтируется и открытое окно.
   const [openRequest, setOpenRequest] = useState<ERPRequest | null>(null);
 
   const supabase = createClient();
@@ -40,29 +42,15 @@ export function RequestsBoard() {
     loadRequests();
   }
 
-  // Когда создаётся полноценный заказ ("Замер не требуется"), он сразу
-  // становится производственным и не появится в этом списке — открываем
-  // его детальную карточку сразу же, чтобы продолжить добавлять работы.
-  async function handleCreated(newId?: string) {
-    loadRequests();
-    if (newId) {
-      const { data } = await supabase.from('requests').select('*').eq('id', newId).single();
-      if (data) {
-        setOpenRequest(data as ERPRequest);
-        setOpenId(newId);
-      }
-    }
-  }
-
   return (
     <div className="space-y-6">
-      <CreateRequestDialog onCreated={handleCreated} />
+      <CreateRequestDialog onCreated={loadRequests} />
 
       {openRequest && (
         <RequestDetailDialog
           request={openRequest}
-          open={!!openId}
-          onOpenChange={(o) => !o && setOpenId(null)}
+          open={!!openRequest}
+          onOpenChange={(o) => !o && setOpenRequest(null)}
           onChanged={loadRequests}
         />
       )}
@@ -88,11 +76,7 @@ export function RequestsBoard() {
                 <p className="text-xs text-muted-foreground">Желаемая дата: {formatDate(r.desired_measurement_date)}</p>
               )}
               <div className="flex gap-2 pt-3">
-                <RequestDetailDialog
-                  request={r}
-                  onChanged={loadRequests}
-                  trigger={<Button size="sm" className="w-full">Открыть заявку</Button>}
-                />
+                <Button size="sm" className="w-full" onClick={() => setOpenRequest(r)}>Открыть заявку</Button>
                 <Button variant="destructive" size="sm" onClick={() => handleLose(r.id)}>
                   <X className="h-4 w-4" />
                 </Button>

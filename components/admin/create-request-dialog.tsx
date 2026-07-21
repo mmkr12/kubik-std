@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Ruler, FileText, ArrowLeft, ImagePlus } from 'lucide-react';
+import { Ruler, FileText, ArrowLeft, ImagePlus, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { findOrCreateClient } from '@/lib/clients';
 import { uploadImage } from '@/lib/storage';
@@ -10,19 +10,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { OrderWorkspace } from '@/components/admin/order-workspace';
 
-type Branch = 'choice' | 'measurement' | 'full';
+type Branch = 'choice' | 'measurement' | 'full' | 'items';
 
 const EMPTY_MEASUREMENT = { name: '', phone: '', address: '', comment: '', desired_date: '' };
 const EMPTY_FULL = { name: '', phone: '', address: '', comment: '', install_date: '' };
 
-export function CreateRequestDialog({ onCreated }: { onCreated: (newId?: string) => void }) {
+export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [branch, setBranch] = useState<Branch>('choice');
   const [measurementForm, setMeasurementForm] = useState(EMPTY_MEASUREMENT);
   const [fullForm, setFullForm] = useState(EMPTY_FULL);
   const [sketchFile, setSketchFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [createdRequestId, setCreatedRequestId] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -31,17 +33,25 @@ export function CreateRequestDialog({ onCreated }: { onCreated: (newId?: string)
     setMeasurementForm(EMPTY_MEASUREMENT);
     setFullForm(EMPTY_FULL);
     setSketchFile(null);
+    setCreatedRequestId(null);
   }
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
-    if (!next) reset();
+    if (!next) {
+      onCreated();
+      reset();
+    }
   }
 
   async function handleSubmitMeasurement() {
     if (!measurementForm.name || !measurementForm.phone) return;
     setSaving(true);
     try {
+      let sketch_url: string | null = null;
+      if (sketchFile) {
+        try { sketch_url = await uploadImage('sketches', sketchFile); } catch { /* продолжаем без эскиза */ }
+      }
       const client = await findOrCreateClient(measurementForm.phone, measurementForm.name);
       await supabase.from('requests').insert({
         client_id: client.id,
@@ -52,8 +62,8 @@ export function CreateRequestDialog({ onCreated }: { onCreated: (newId?: string)
         address: measurementForm.address || null,
         comment: measurementForm.comment || null,
         desired_measurement_date: measurementForm.desired_date || null,
+        sketch_url,
       });
-      onCreated();
       handleOpenChange(false);
     } finally {
       setSaving(false);
@@ -66,15 +76,9 @@ export function CreateRequestDialog({ onCreated }: { onCreated: (newId?: string)
     try {
       let sketch_url: string | null = null;
       if (sketchFile) {
-        try {
-          sketch_url = await uploadImage('sketches', sketchFile);
-        } catch {
-          // продолжаем без эскиза
-        }
+        try { sketch_url = await uploadImage('sketches', sketchFile); } catch { /* продолжаем без эскиза */ }
       }
-
       const client = await findOrCreateClient(fullForm.phone, fullForm.name);
-      // Никаких промежуточных шагов — сразу производственный заказ.
       const { data: created } = await supabase
         .from('requests')
         .insert({
@@ -93,8 +97,13 @@ export function CreateRequestDialog({ onCreated }: { onCreated: (newId?: string)
         .select('id')
         .single();
 
-      onCreated(created?.id);
-      handleOpenChange(false);
+      // Никакого второго окна — продолжаем в этом же диалоге, сразу
+      // с калькулятором и всеми блоками заказа.
+      if (created) {
+        setCreatedRequestId(created.id);
+        setBranch('items');
+        onCreated();
+      }
     } finally {
       setSaving(false);
     }
@@ -103,7 +112,7 @@ export function CreateRequestDialog({ onCreated }: { onCreated: (newId?: string)
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <Button onClick={() => setOpen(true)}>Создать заявку</Button>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         {branch === 'choice' && (
           <>
             <DialogTitle>Новая заявка</DialogTitle>
@@ -123,7 +132,7 @@ export function CreateRequestDialog({ onCreated }: { onCreated: (newId?: string)
               >
                 <FileText className="h-5 w-5 text-blue-600" />
                 <span className="font-medium text-navy-900">Замер не требуется</span>
-                <span className="text-xs text-muted-foreground">Сразу производственный заказ</span>
+                <span className="text-xs text-muted-foreground">Сразу калькулятор и заказ, за один раз</span>
               </button>
             </div>
           </>
@@ -151,6 +160,14 @@ export function CreateRequestDialog({ onCreated }: { onCreated: (newId?: string)
               <div className="space-y-2">
                 <Label>Комментарий</Label>
                 <Textarea value={measurementForm.comment} onChange={(e) => setMeasurementForm({ ...measurementForm, comment: e.target.value })} placeholder="Что нужно, пожелания клиента…" />
+              </div>
+              <div className="space-y-2">
+                <Label>Фото объекта (необязательно)</Label>
+                <label className="flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-dashed border-border px-4 text-sm text-muted-foreground hover:bg-mist-50">
+                  <ImagePlus className="h-4 w-4" />
+                  {sketchFile ? sketchFile.name : 'Загрузить изображение'}
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setSketchFile(e.target.files?.[0] ?? null)} />
+                </label>
               </div>
               <div className="space-y-2">
                 <Label>Желаемая дата замера</Label>
@@ -200,7 +217,19 @@ export function CreateRequestDialog({ onCreated }: { onCreated: (newId?: string)
               </div>
             </div>
             <Button className="mt-5 w-full" onClick={handleSubmitFull} disabled={saving}>
-              {saving ? 'Сохраняем…' : 'Создать заказ и добавить работы'}
+              {saving ? 'Создаём…' : 'Продолжить — добавить работы и калькулятор'}
+            </Button>
+          </>
+        )}
+
+        {branch === 'items' && createdRequestId && (
+          <>
+            <DialogTitle>Заказ создан — добавьте работы</DialogTitle>
+            <div className="mt-4">
+              <OrderWorkspace requestId={createdRequestId} onChanged={() => {}} />
+            </div>
+            <Button className="mt-5 w-full" onClick={() => handleOpenChange(false)}>
+              <Check className="mr-1 h-4 w-4" /> Готово
             </Button>
           </>
         )}

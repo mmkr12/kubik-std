@@ -218,8 +218,17 @@ export interface Material {
   id: string;
   name: string;
   unit: string;
+  default_price: number;
   active: boolean;
   sort_order: number;
+}
+
+export interface ProductTypeMaterial {
+  id: string;
+  product_type_id: string;
+  material_id: string;
+  quantity_per_unit: number;
+  material?: Material;
 }
 
 export interface ProcurementChecklist {
