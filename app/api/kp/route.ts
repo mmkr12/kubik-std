@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
 import { calcItemCost, calcInstallCost, resolveNorm, type ProductionSettingsRow } from '@/lib/erp-pricing';
 import type { ProductType, InstallCity, InstallComplexity } from '@/lib/types';
@@ -38,8 +37,6 @@ export async function GET(request: NextRequest) {
 
   const validUntil = new Date();
   validUntil.setHours(validUntil.getHours() + 12);
-
-  const qrDataUrl = await QRCode.toDataURL('https://kubikstd.kz', { margin: 1, width: 240 });
 
   const sizeLabel = pt.unit === 'm2' ? `${widthM} м × ${heightM} м` : `${count} шт`;
 
@@ -81,7 +78,7 @@ export async function GET(request: NextRequest) {
   <div class="sheet">
     <div class="head">
       <div>
-        <div class="logo">K<span class="b">&lt;&gt;</span>I <span style="opacity:.5;font-weight:400">.std</span></div>
+        <img src="/brand/logo-dop.svg" alt="Kubik.std" style="height:20px;filter:brightness(0) invert(1)" />
         <div style="margin-top:26px" class="badge">Коммерческое предложение</div>
         <div style="font-size:20px;font-weight:600">${pt.name}</div>
       </div>
@@ -113,8 +110,8 @@ export async function GET(request: NextRequest) {
           <div class="valid">до ${validUntil.toLocaleString('ru-RU')}</div>
         </div>
         <div class="qr">
-          <img src="${qrDataUrl}" alt="QR" />
-          <p>Оплатить онлайн</p>
+          <img src="/brand/kaspi-qr.svg" alt="Kaspi QR" />
+          <p>Kaspi Pay<br />+7 707 775 00 11</p>
         </div>
       </div>
     </div>
