@@ -37,7 +37,7 @@ export interface CalculatorInput {
 // ERP: клиенты, типы изделий, заявки, позиции работ
 // ---------------------------------------------------------------------
 
-export type RequestStatus = 'measurement' | 'draft' | 'in_production' | 'done' | 'lost';
+export type RequestStatus = 'measurement' | 'in_production' | 'done' | 'lost';
 
 export interface Client {
   id: string;
@@ -84,12 +84,17 @@ export interface OrderItem {
   request_id: string;
   product_type_id: string;
   params: Record<string, unknown>;
+  tech_spec: Record<string, string | number | boolean>;
   manufacture_hours: number | null;
   install_complexity: InstallComplexity | null;
   install_city: InstallCity;
   sunday_client_requested: boolean;
   weekday_surcharge_applied: boolean;
   item_cost: number;
+  final_cost: number | null;
+  adjustment_type: 'discount' | 'markup' | null;
+  adjustment_amount: number;
+  adjustment_comment: string | null;
   install_cost: number;
   created_at: string;
 }
@@ -107,8 +112,12 @@ export interface ERPRequest {
   finished_photo_url: string | null;
   recommended_install_date: string | null;
   install_date: string | null;
+  desired_measurement_date: string | null;
   manual_override: boolean;
   total_cost: number;
+  paid_amount: number;
+  fully_paid: boolean;
+  warranty_notice_dismissed: boolean;
   created_at: string;
   started_production_at: string | null;
   finished_at: string | null;
@@ -187,6 +196,8 @@ export interface OrderOperation {
   status: OperationStatus;
   started_at: string | null;
   completed_at: string | null;
+  completion_photos: string[];
+  completion_comment: string | null;
   created_at: string;
 }
 
@@ -239,4 +250,76 @@ export interface CorporateEvent {
   title: string;
   event_date: string;
   description: string | null;
+}
+
+// ---------------------------------------------------------------------
+// Финансы, тех.поля, журнал событий
+// ---------------------------------------------------------------------
+
+export interface Payment {
+  id: string;
+  request_id: string;
+  amount: number;
+  paid_at: string;
+  note: string | null;
+  created_by: string | null;
+}
+
+export interface RequestMaterial {
+  id: string;
+  request_id: string;
+  material_id: string | null;
+  quantity: number;
+  unit_cost: number;
+  total_cost: number;
+  material?: Material;
+}
+
+export type FieldType = 'text' | 'select' | 'number' | 'boolean';
+
+export interface ProductTypeField {
+  id: string;
+  product_type_id: string;
+  key: string;
+  label: string;
+  field_type: FieldType;
+  options: string[];
+  sort_order: number;
+}
+
+export interface FundTransaction {
+  id: string;
+  request_id: string | null;
+  payment_id: string | null;
+  fund_key: 'payroll' | 'mandatory' | 'development';
+  amount: number;
+  created_at: string;
+}
+
+export interface CompanyFunds {
+  id: number;
+  payroll_fund_pct: number;
+  mandatory_expenses_fund_pct: number;
+  development_fund_pct: number;
+}
+
+export interface ClientComment {
+  id: string;
+  client_id: string;
+  text: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface EventLogRow {
+  id: string;
+  created_at: string;
+  actor_employee_id: string | null;
+  actor_role: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  old_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+  comment: string | null;
 }

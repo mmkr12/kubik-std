@@ -41,7 +41,7 @@ function LoginForm() {
       return;
     }
 
-    router.push(searchParams.get('next') ?? '/admin/zamery');
+    router.push(searchParams.get('next') ?? '/admin/requests');
     router.refresh();
   }
 

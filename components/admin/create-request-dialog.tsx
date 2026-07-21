@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Ruler, FileText, ArrowLeft } from 'lucide-react';
+import { Ruler, FileText, ArrowLeft, ImagePlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { findOrCreateClient } from '@/lib/clients';
+import { uploadImage } from '@/lib/storage';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,14 +13,15 @@ import { Textarea } from '@/components/ui/textarea';
 
 type Branch = 'choice' | 'measurement' | 'full';
 
-const EMPTY_MEASUREMENT = { name: '', phone: '', address: '' };
+const EMPTY_MEASUREMENT = { name: '', phone: '', address: '', comment: '', desired_date: '' };
 const EMPTY_FULL = { name: '', phone: '', address: '', comment: '', install_date: '' };
 
-export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
+export function CreateRequestDialog({ onCreated }: { onCreated: (newId?: string) => void }) {
   const [open, setOpen] = useState(false);
   const [branch, setBranch] = useState<Branch>('choice');
   const [measurementForm, setMeasurementForm] = useState(EMPTY_MEASUREMENT);
   const [fullForm, setFullForm] = useState(EMPTY_FULL);
+  const [sketchFile, setSketchFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
   const supabase = createClient();
@@ -28,6 +30,7 @@ export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
     setBranch('choice');
     setMeasurementForm(EMPTY_MEASUREMENT);
     setFullForm(EMPTY_FULL);
+    setSketchFile(null);
   }
 
   function handleOpenChange(next: boolean) {
@@ -47,6 +50,8 @@ export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
         name: measurementForm.name,
         phone: measurementForm.phone,
         address: measurementForm.address || null,
+        comment: measurementForm.comment || null,
+        desired_measurement_date: measurementForm.desired_date || null,
       });
       onCreated();
       handleOpenChange(false);
@@ -59,21 +64,36 @@ export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
     if (!fullForm.name || !fullForm.phone) return;
     setSaving(true);
     try {
+      let sketch_url: string | null = null;
+      if (sketchFile) {
+        try {
+          sketch_url = await uploadImage('sketches', sketchFile);
+        } catch {
+          // продолжаем без эскиза
+        }
+      }
+
       const client = await findOrCreateClient(fullForm.phone, fullForm.name);
-      await supabase.from('requests').insert({
-        client_id: client.id,
-        status: 'draft',
-        needs_measurement: false,
-        name: fullForm.name,
-        phone: fullForm.phone,
-        address: fullForm.address || null,
-        comment: fullForm.comment || null,
-        // Дата монтажа пока вводится вручную — автоподбор по загрузке
-        // производства появится на следующем этапе (планировщик).
-        install_date: fullForm.install_date || null,
-        manual_override: !!fullForm.install_date,
-      });
-      onCreated();
+      // Никаких промежуточных шагов — сразу производственный заказ.
+      const { data: created } = await supabase
+        .from('requests')
+        .insert({
+          client_id: client.id,
+          status: 'in_production',
+          needs_measurement: false,
+          name: fullForm.name,
+          phone: fullForm.phone,
+          address: fullForm.address || null,
+          comment: fullForm.comment || null,
+          sketch_url,
+          install_date: fullForm.install_date || null,
+          manual_override: !!fullForm.install_date,
+          started_production_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single();
+
+      onCreated(created?.id);
       handleOpenChange(false);
     } finally {
       setSaving(false);
@@ -95,7 +115,7 @@ export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
               >
                 <Ruler className="h-5 w-5 text-blue-600" />
                 <span className="font-medium text-navy-900">Требуется замер</span>
-                <span className="text-xs text-muted-foreground">Только имя, телефон, адрес</span>
+                <span className="text-xs text-muted-foreground">Контакты, адрес, желаемая дата замера</span>
               </button>
               <button
                 onClick={() => setBranch('full')}
@@ -103,7 +123,7 @@ export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
               >
                 <FileText className="h-5 w-5 text-blue-600" />
                 <span className="font-medium text-navy-900">Замер не требуется</span>
-                <span className="text-xs text-muted-foreground">Полная заявка сразу</span>
+                <span className="text-xs text-muted-foreground">Сразу производственный заказ</span>
               </button>
             </div>
           </>
@@ -117,7 +137,7 @@ export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
             <DialogTitle>Требуется замер</DialogTitle>
             <div className="mt-4 space-y-3">
               <div className="space-y-2">
-                <Label>Имя клиента</Label>
+                <Label>Клиент</Label>
                 <Input value={measurementForm.name} onChange={(e) => setMeasurementForm({ ...measurementForm, name: e.target.value })} placeholder="Айгерим" />
               </div>
               <div className="space-y-2">
@@ -127,6 +147,14 @@ export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
               <div className="space-y-2">
                 <Label>Адрес</Label>
                 <Input value={measurementForm.address} onChange={(e) => setMeasurementForm({ ...measurementForm, address: e.target.value })} placeholder="ул. Абая 123" />
+              </div>
+              <div className="space-y-2">
+                <Label>Комментарий</Label>
+                <Textarea value={measurementForm.comment} onChange={(e) => setMeasurementForm({ ...measurementForm, comment: e.target.value })} placeholder="Что нужно, пожелания клиента…" />
+              </div>
+              <div className="space-y-2">
+                <Label>Желаемая дата замера</Label>
+                <Input type="date" value={measurementForm.desired_date} onChange={(e) => setMeasurementForm({ ...measurementForm, desired_date: e.target.value })} />
               </div>
             </div>
             <Button className="mt-5 w-full" onClick={handleSubmitMeasurement} disabled={saving}>
@@ -143,7 +171,7 @@ export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
             <DialogTitle>Замер не требуется</DialogTitle>
             <div className="mt-4 space-y-3">
               <div className="space-y-2">
-                <Label>Имя клиента</Label>
+                <Label>Клиент</Label>
                 <Input value={fullForm.name} onChange={(e) => setFullForm({ ...fullForm, name: e.target.value })} placeholder="Айгерим" />
               </div>
               <div className="space-y-2">
@@ -159,15 +187,20 @@ export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
                 <Textarea value={fullForm.comment} onChange={(e) => setFullForm({ ...fullForm, comment: e.target.value })} placeholder="Нужна вывеска на фасад..." />
               </div>
               <div className="space-y-2">
-                <Label>Дата монтажа</Label>
+                <Label>Эскиз (необязательно)</Label>
+                <label className="flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-dashed border-border px-4 text-sm text-muted-foreground hover:bg-mist-50">
+                  <ImagePlus className="h-4 w-4" />
+                  {sketchFile ? sketchFile.name : 'Загрузить изображение'}
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setSketchFile(e.target.files?.[0] ?? null)} />
+                </label>
+              </div>
+              <div className="space-y-2">
+                <Label>Дата монтажа (можно оставить пустой и подобрать позже)</Label>
                 <Input type="date" value={fullForm.install_date} onChange={(e) => setFullForm({ ...fullForm, install_date: e.target.value })} />
-                <p className="text-xs text-muted-foreground">
-                  Пока вводится вручную. Автоматический подбор даты по загрузке производства появится на следующем шаге.
-                </p>
               </div>
             </div>
             <Button className="mt-5 w-full" onClick={handleSubmitFull} disabled={saving}>
-              {saving ? 'Сохраняем…' : 'Создать заявку'}
+              {saving ? 'Сохраняем…' : 'Создать заказ и добавить работы'}
             </Button>
           </>
         )}

@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Play, Check, Lock } from 'lucide-react';
+import { Play, Check, Lock, ImagePlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { uploadImage } from '@/lib/storage';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { formatTenge, formatDate } from '@/lib/utils';
 import type { Employee, OrderOperation, PayrollAccrual } from '@/lib/types';
 
@@ -13,6 +16,10 @@ export default function StaffHomePage() {
   const [operations, setOperations] = useState<(OrderOperation & { request_name?: string })[]>([]);
   const [accruals, setAccruals] = useState<PayrollAccrual[]>([]);
   const [loading, setLoading] = useState(true);
+  const [completing, setCompleting] = useState<OrderOperation | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [completionComment, setCompletionComment] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const supabase = createClient();
 
@@ -49,9 +56,39 @@ export default function StaffHomePage() {
     loadAll();
   }
 
-  async function completeOperation(id: string) {
-    await supabase.from('order_operations').update({ status: 'done', completed_at: new Date().toISOString() }).eq('id', id);
-    loadAll();
+  function openCompleteDialog(op: OrderOperation) {
+    setCompleting(op);
+    setPhotoFiles([]);
+    setCompletionComment('');
+  }
+
+  async function submitCompletion() {
+    if (!completing) return;
+    setSaving(true);
+    try {
+      const urls: string[] = [];
+      for (const file of photoFiles) {
+        try {
+          const url = await uploadImage('finished-photos', file);
+          urls.push(url);
+        } catch {
+          // пропускаем неудачную загрузку, остальное сохраняем
+        }
+      }
+      await supabase
+        .from('order_operations')
+        .update({
+          status: 'done',
+          completed_at: new Date().toISOString(),
+          completion_photos: urls,
+          completion_comment: completionComment || null,
+        })
+        .eq('id', completing.id);
+      setCompleting(null);
+      loadAll();
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) return <p className="text-muted-foreground">Загрузка…</p>;
@@ -97,7 +134,7 @@ export default function StaffHomePage() {
                   </Button>
                 )}
                 {op.status === 'in_progress' && (
-                  <Button size="sm" variant="success" className="w-full" onClick={() => completeOperation(op.id)}>
+                  <Button size="sm" variant="success" className="w-full" onClick={() => openCompleteDialog(op)}>
                     <Check className="mr-1 h-3.5 w-3.5" /> Завершить
                   </Button>
                 )}
@@ -121,6 +158,23 @@ export default function StaffHomePage() {
           ))}
         </div>
       </div>
+
+      <Dialog open={!!completing} onOpenChange={(o) => !o && setCompleting(null)}>
+        <DialogContent>
+          <DialogTitle>Завершить операцию</DialogTitle>
+          <p className="mt-1 text-sm text-muted-foreground">{completing?.name}</p>
+          <label className="mt-4 flex h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border text-center text-sm text-muted-foreground hover:bg-mist-50">
+            <ImagePlus className="h-6 w-6" />
+            {photoFiles.length > 0 ? `${photoFiles.length} фото выбрано` : 'Загрузите фото выполненной работы'}
+            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => setPhotoFiles(Array.from(e.target.files ?? []))} />
+          </label>
+          <Textarea className="mt-3" placeholder="Комментарий (необязательно)" value={completionComment} onChange={(e) => setCompletionComment(e.target.value)} />
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setCompleting(null)}>Отмена</Button>
+            <Button onClick={submitCompletion} disabled={saving}>{saving ? 'Сохраняем…' : 'Готово'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
