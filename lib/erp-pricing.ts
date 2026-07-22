@@ -1,4 +1,4 @@
-import type { InstallCity, InstallComplexity, ProductType, ProductTypeNorm } from './types';
+import type { InstallCity, InstallComplexity, ProductType, ProductTypeNorm, SheetTier } from './types';
 
 export interface ProductionSettingsRow {
   daily_capacity_hours: number;
@@ -42,6 +42,76 @@ export function calcItemCost(productType: ProductType, params: { widthM?: number
   }
   const count = Math.max(params.count ?? 1, 1);
   return { area: 0, cost: Math.round(productType.price_per_unit * count) };
+}
+
+export interface SheetLayoutResult {
+  area: number;
+  sheetArea: number;
+  fitsInSheet: boolean;
+  sheetsNeeded: number;
+  tier: SheetTier | null; // выбранная доля листа (если поместилось в одну)
+  cost: number;
+}
+
+// Себестоимость по листам: ищем самую дешёвую долю листа, в площадь
+// которой укладывается вывеска. Если она больше целого листа —
+// считаем количество целых листов. Упрощённо (по площади, без учёта
+// ориентации реза) — этого достаточно для оценки на этапе расчёта.
+export function calcSheetLayout(productType: ProductType, widthM: number, heightM: number): SheetLayoutResult | null {
+  if (!productType.sheet_width_m || !productType.sheet_height_m || productType.sheet_tiers.length === 0) return null;
+
+  const area = Math.max(widthM, 0.1) * Math.max(heightM, 0.1);
+  const sheetArea = productType.sheet_width_m * productType.sheet_height_m;
+  const maxSheetEdge = Math.max(productType.sheet_width_m, productType.sheet_height_m);
+  const fitsEdge = Math.max(widthM, heightM) <= maxSheetEdge;
+
+  const sortedTiers = [...productType.sheet_tiers].sort((a, b) => a.fraction - b.fraction);
+  const fullTier = sortedTiers[sortedTiers.length - 1];
+
+  if (!fitsEdge || area > sheetArea) {
+    const sheetsNeeded = Math.ceil(area / sheetArea);
+    return { area, sheetArea, fitsInSheet: false, sheetsNeeded, tier: null, cost: sheetsNeeded * fullTier.price };
+  }
+
+  const tier = sortedTiers.find((t) => area <= t.fraction * sheetArea) ?? fullTier;
+  return { area, sheetArea, fitsInSheet: true, sheetsNeeded: 1, tier, cost: tier.price };
+}
+
+// Подсказки: "уменьшите до X — сэкономите" / "можно увеличить почти без
+// изменения цены". Считаем от той же таблицы долей листа.
+export function getSheetHints(productType: ProductType, widthM: number, heightM: number): string[] {
+  const layout = calcSheetLayout(productType, widthM, heightM);
+  if (!layout || !layout.tier) return [];
+
+  const hints: string[] = [];
+  const sortedTiers = [...productType.sheet_tiers].sort((a, b) => a.fraction - b.fraction);
+  const currentIndex = sortedTiers.findIndex((t) => t.label === layout.tier!.label);
+  const cheaperTier = sortedTiers[currentIndex - 1];
+  const moreExpensiveTier = sortedTiers[currentIndex + 1];
+
+  if (cheaperTier) {
+    const maxAreaForCheaper = cheaperTier.fraction * layout.sheetArea;
+    const overshoot = layout.area - maxAreaForCheaper;
+    const overshootRatio = overshoot / maxAreaForCheaper;
+    if (overshootRatio > 0 && overshootRatio <= 0.15) {
+      const savings = layout.tier.price - cheaperTier.price;
+      hints.push(`Уменьшите примерно на ${Math.round(overshootRatio * 100)}% по площади — уложитесь в «${cheaperTier.label}» и сэкономите ${formatTengeShort(savings)}`);
+    }
+  }
+
+  if (moreExpensiveTier) {
+    const maxAreaForCurrent = layout.tier.fraction * layout.sheetArea;
+    const headroomRatio = (maxAreaForCurrent - layout.area) / maxAreaForCurrent;
+    if (headroomRatio >= 0.15) {
+      hints.push(`До границы «${layout.tier.label}» есть запас — вывеску можно сделать заметно больше без изменения цены`);
+    }
+  }
+
+  return hints;
+}
+
+function formatTengeShort(n: number) {
+  return `${Math.round(n).toLocaleString('ru-RU')} ₸`;
 }
 
 export function calcInstallCost(opts: {

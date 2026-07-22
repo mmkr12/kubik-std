@@ -28,7 +28,7 @@ async function getAllWorks(): Promise<WorkItem[]> {
   }
 }
 
-export default async function WorksPage() {
+export default async function WorksPage({ searchParams }: { searchParams: { type?: string } }) {
   const works = await getAllWorks();
 
   return (
@@ -43,7 +43,7 @@ export default async function WorksPage() {
       </section>
 
       <section className="container-kubik pb-24">
-        <WorksGallery works={works} />
+        <WorksGallery works={works} initialType={searchParams.type} />
       </section>
 
       <footer className="container-kubik flex items-center justify-between border-t border-white/10 py-8 text-xs text-white/40">

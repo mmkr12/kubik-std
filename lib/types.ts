@@ -71,6 +71,12 @@ export interface ProductCategory {
   active: boolean;
 }
 
+export interface SheetTier {
+  label: string;
+  fraction: number;
+  price: number;
+}
+
 export interface ProductType {
   id: string;
   category_id: string | null;
@@ -84,6 +90,9 @@ export interface ProductType {
   needs_review: boolean;
   active: boolean;
   sort_order: number;
+  sheet_width_m: number | null;
+  sheet_height_m: number | null;
+  sheet_tiers: SheetTier[];
 }
 
 export type InstallComplexity = 'light' | 'medium' | 'medium_large' | 'hard';

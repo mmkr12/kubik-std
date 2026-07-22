@@ -12,8 +12,8 @@ export interface WorkItem {
   typeName: string | null;
 }
 
-export function WorksGallery({ works }: { works: WorkItem[] }) {
-  const [filter, setFilter] = useState<string>('all');
+export function WorksGallery({ works, initialType }: { works: WorkItem[]; initialType?: string }) {
+  const [filter, setFilter] = useState<string>(initialType ?? 'all');
 
   const types = useMemo(() => {
     const map = new Map<string, string>();

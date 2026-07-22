@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatTenge } from '@/lib/utils';
-import { calcItemCost, calcInstallCost, resolveNorm, averageHours, type ProductionSettingsRow } from '@/lib/erp-pricing';
+import { calcItemCost, calcInstallCost, calcSheetLayout, resolveNorm, averageHours, type ProductionSettingsRow } from '@/lib/erp-pricing';
+import { SheetPreview } from '@/components/sheet-preview';
+import { TypeExamplesGallery } from '@/components/type-examples-gallery';
 import type { ProductType, ProductCategory, InstallCity, InstallComplexity } from '@/lib/types';
 
 export interface CalculatorDraft {
@@ -57,14 +59,19 @@ export function ProductCalculator({
   const [sundayRequested, setSundayRequested] = useState(false);
   const [priceOverride, setPriceOverride] = useState<string>('');
   const [adjustmentComment, setAdjustmentComment] = useState('');
+  const [signText, setSignText] = useState('');
 
   const activeCategories = categories.filter((c) => c.active).sort((a, b) => a.sort_order - b.sort_order);
   const typesInCategory = productTypes.filter((p) => p.category_id === categoryId && p.active);
   const productType = productTypes.find((p) => p.key === productKey);
 
+  const isSheetBased = !!productType?.sheet_tiers?.length;
+
   const preview = useMemo(() => {
     if (!productType) return null;
-    const { area, cost: itemCost } = calcItemCost(productType, { widthM, heightM, count });
+    const { area, cost: areaCost } = calcItemCost(productType, { widthM, heightM, count });
+    const sheetLayout = isSheetBased ? calcSheetLayout(productType, widthM, heightM) : null;
+    const itemCost = sheetLayout ? sheetLayout.cost : areaCost;
     const norm = resolveNorm(productType, area);
     const manufactureHours = averageHours(norm, 'manufacture');
     const installCost = calcInstallCost({
@@ -75,7 +82,7 @@ export function ProductCalculator({
       settings,
     });
     return { area, itemCost, manufactureHours, installCost };
-  }, [productType, widthM, heightM, count, city, complexity, sundayRequested, settings]);
+  }, [productType, isSheetBased, widthM, heightM, count, city, complexity, sundayRequested, settings]);
 
   function selectCategory(id: string) {
     setCategoryId(id);
@@ -175,6 +182,8 @@ export function ProductCalculator({
             <ArrowLeft className="h-3.5 w-3.5" /> {productType.name}
           </button>
 
+          <TypeExamplesGallery productTypeId={productType.id} productTypeKey={productType.key} />
+
           {productType.unit === 'm2' ? (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -191,6 +200,16 @@ export function ProductCalculator({
               <Label>Количество, шт</Label>
               <Input type="number" min={1} value={count} onChange={(e) => setCount(Number(e.target.value))} />
             </div>
+          )}
+
+          {isSheetBased && (
+            <>
+              <div className="space-y-2">
+                <Label>Текст на вывеске (необязательно, для визуализации)</Label>
+                <Input value={signText} onChange={(e) => setSignText(e.target.value)} placeholder="Например: Kubik" />
+              </div>
+              <SheetPreview productType={productType} widthM={widthM} heightM={heightM} text={signText} />
+            </>
           )}
 
           {productType.install_mode === 'complexity' && (
