@@ -1,15 +1,21 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Layers, Lightbulb, Wrench, Ruler } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { formatTenge } from '@/lib/utils';
 import { calcSheetMaterialPrice, resolveNorm, averageHours, type ProductionSettingsRow } from '@/lib/erp-pricing';
 import { TypeExamplesGallery } from '@/components/type-examples-gallery';
 import { InstallOrDeliverySelector, DEFAULT_FULFILMENT, calcFulfilmentCost, type FulfilmentState } from '@/components/calculators/install-delivery-selector';
 import { LedPsuSelector, DEFAULT_LED_PSU, type LedPsuState } from '@/components/calculators/led-psu-selector';
+import { SheetPreview } from '@/components/sheet-preview';
+import { CalculatorShell } from '@/components/calculators/ui/calculator-shell';
+import { CalculatorFooter } from '@/components/calculators/ui/calculator-footer';
+import { AccordionSection } from '@/components/calculators/ui/accordion-section';
+import { StepperInput } from '@/components/calculators/ui/stepper-input';
+import { CharCounterInput } from '@/components/calculators/ui/char-counter-input';
+import { PriceBreakdown, type PriceLine } from '@/components/calculators/ui/price-breakdown';
+import { StatsRow } from '@/components/calculators/ui/stats-row';
 import type { CalculatorDraft } from '@/components/product-calculator';
 import type { ProductType, SheetMaterialPrice } from '@/lib/types';
 
@@ -31,6 +37,7 @@ export function BackingCalculator({
   const [widthM, setWidthM] = useState(1.2);
   const [heightM, setHeightM] = useState(0.6);
   const [letterHeightMm, setLetterHeightMm] = useState(300);
+  const [mainText, setMainText] = useState('KUBIK');
   const [additionalText, setAdditionalText] = useState('');
   const [fulfilment, setFulfilment] = useState<FulfilmentState>(DEFAULT_FULFILMENT);
   const [ledPsu, setLedPsu] = useState<LedPsuState>(DEFAULT_LED_PSU);
@@ -63,6 +70,14 @@ export function BackingCalculator({
   const fulfilmentCost = calcFulfilmentCost(fulfilment, settings);
   const calculated = itemCost + fulfilmentCost;
 
+  const materialsAmount = Math.round((sheetResult?.baseCost ?? 0) + ledFund + psuCost);
+  const priceLines: PriceLine[] = [
+    { key: 'materials', label: 'Материалы', amount: materialsAmount },
+    { key: 'production', label: 'Производство', amount: itemCost - materialsAmount },
+    { key: 'install', label: 'Монтаж', amount: fulfilment.mode === 'install' ? fulfilmentCost : 0 },
+    { key: 'delivery', label: 'Доставка', amount: fulfilment.mode === 'delivery' ? fulfilmentCost : 0 },
+  ];
+
   function handleAdd() {
     if (!sheetResult) return;
     const norm = resolveNorm(productType, area);
@@ -71,10 +86,7 @@ export function BackingCalculator({
 
     onAdd?.({
       productType,
-      params: {
-        widthM, heightM, material, shape, letterHeightMm, additionalText,
-        ledType: ledPsu.ledType, psuType: ledPsu.psuType, fulfilment,
-      },
+      params: { widthM, heightM, material, shape, letterHeightMm, mainText, additionalText, ledType: ledPsu.ledType, psuType: ledPsu.psuType, fulfilment },
       manufactureHours,
       installComplexity: fulfilment.mode === 'install' ? fulfilment.installComplexity : null,
       installCity: fulfilment.mode === 'install' ? fulfilment.installCity : 'taraz',
@@ -94,82 +106,75 @@ export function BackingCalculator({
   const kpUrl = `/api/kp?productKey=${encodeURIComponent(productType.key)}&widthM=${widthM}&heightM=${heightM}`;
 
   return (
-    <div className="space-y-4">
-      <TypeExamplesGallery productTypeId={productType.id} productTypeKey={productType.key} />
+    <CalculatorShell
+      left={
+        <>
+          <TypeExamplesGallery productTypeId={productType.id} productTypeKey={productType.key} />
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label>Тип подложки</Label>
-          <select value={material} onChange={(e) => setMaterial(e.target.value as 'composite' | 'pvc')} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
-            <option value="composite">Алюкобонд</option>
-            <option value="pvc">ПВХ</option>
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label>Форма подложки</Label>
-          <select value={shape} onChange={(e) => setShape(e.target.value as 'rect' | 'figured')} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
-            <option value="rect">Прямоугольная</option>
-            <option value="figured">Фигурная (по контуру)</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label>Ширина подложки, м</Label>
-          <Input type="number" step={0.1} value={widthM} onChange={(e) => setWidthM(Number(e.target.value))} />
-        </div>
-        <div className="space-y-1">
-          <Label>Высота подложки, м</Label>
-          <Input type="number" step={0.1} value={heightM} onChange={(e) => setHeightM(Number(e.target.value))} />
-        </div>
-      </div>
-
-      {sheetResult && (
-        <p className="text-xs text-muted-foreground">Раскладка: {sheetResult.tierLabel}</p>
-      )}
-
-      <div className="space-y-1">
-        <Label>Высота букв, мм</Label>
-        <Input type="number" value={letterHeightMm} onChange={(e) => setLetterHeightMm(Number(e.target.value))} />
-      </div>
-      <div className="space-y-1">
-        <Label>Дополнительный текст (необязательно)</Label>
-        <Input value={additionalText} onChange={(e) => setAdditionalText(e.target.value)} />
-      </div>
-
-      <LedPsuSelector value={ledPsu} onChange={setLedPsu} settings={settings} />
-      <InstallOrDeliverySelector value={fulfilment} onChange={setFulfilment} settings={settings} />
-
-      <div className="flex flex-col gap-2 rounded-lg bg-white px-4 py-3 text-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Итого</span>
-          <span className="text-lg font-bold text-navy-900">{formatTenge(calculated)}</span>
-        </div>
-        {mode === 'item' && (
-          <div className="grid grid-cols-1 gap-2 border-t border-border pt-2 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label className="text-xs">Итоговая цена</Label>
-              <Input type="number" placeholder={String(calculated)} value={priceOverride} onChange={(e) => setPriceOverride(e.target.value)} />
+          <AccordionSection icon={Ruler} title="1. Основные параметры" defaultOpen>
+            <CharCounterInput label="Текст на вывеске" value={mainText} onChange={setMainText} maxLength={20} placeholder="Название компании" />
+            <div className="grid grid-cols-2 gap-3">
+              <StepperInput label="Ширина подложки" unit="м" value={widthM} onChange={setWidthM} step={0.1} min={0.2} />
+              <StepperInput label="Высота подложки" unit="м" value={heightM} onChange={setHeightM} step={0.1} min={0.2} />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Причина скидки/наценки</Label>
-              <Input value={adjustmentComment} onChange={(e) => setAdjustmentComment(e.target.value)} />
-            </div>
-          </div>
-        )}
-      </div>
+            <StepperInput label="Высота букв" unit="мм" value={letterHeightMm} onChange={setLetterHeightMm} step={10} min={50} />
+            <CharCounterInput label="Дополнительный текст (необязательно)" value={additionalText} onChange={setAdditionalText} maxLength={30} />
+          </AccordionSection>
 
-      {mode === 'item' ? (
-        <div className="flex gap-2">
-          {onCancel && <Button variant="outline" className="flex-1" onClick={onCancel}>Отмена</Button>}
-          <Button className="flex-1" onClick={handleAdd} disabled={!sheetResult}>Добавить в заявку</Button>
-        </div>
-      ) : (
-        <a href={kpUrl} target="_blank" className="block w-full rounded-full bg-blue-gradient py-2.5 text-center text-sm font-medium text-white hover:brightness-110">
-          Открыть коммерческое предложение →
-        </a>
-      )}
-    </div>
+          <AccordionSection icon={Layers} title="2. Материалы и форма">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Тип подложки</Label>
+                <select value={material} onChange={(e) => setMaterial(e.target.value as 'composite' | 'pvc')} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
+                  <option value="composite">Алюкобонд</option>
+                  <option value="pvc">ПВХ</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label>Форма подложки</Label>
+                <select value={shape} onChange={(e) => setShape(e.target.value as 'rect' | 'figured')} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
+                  <option value="rect">Прямоугольная</option>
+                  <option value="figured">Фигурная (по контуру)</option>
+                </select>
+              </div>
+            </div>
+            {sheetResult && <p className="text-xs text-muted-foreground">Раскладка: {sheetResult.tierLabel}</p>}
+          </AccordionSection>
+
+          <AccordionSection icon={Lightbulb} title="3. Подсветка">
+            <LedPsuSelector value={ledPsu} onChange={setLedPsu} settings={settings} />
+          </AccordionSection>
+
+          <AccordionSection icon={Wrench} title="4. Крепление и монтаж">
+            <InstallOrDeliverySelector value={fulfilment} onChange={setFulfilment} settings={settings} />
+          </AccordionSection>
+        </>
+      }
+      right={
+        <>
+          <SheetPreview productType={productType} widthM={widthM} heightM={heightM} text={mainText} />
+          <StatsRow items={[
+            { icon: Ruler, label: 'Высота букв', value: `${letterHeightMm} мм` },
+            { icon: Ruler, label: 'Подложка', value: `${widthM}×${heightM} м` },
+            { icon: Ruler, label: 'Площадь', value: `${area.toFixed(2)} м²` },
+          ]} />
+          <PriceBreakdown lines={priceLines} total={calculated} />
+        </>
+      }
+      footer={
+        <CalculatorFooter
+          calculated={calculated}
+          mode={mode}
+          priceOverride={priceOverride}
+          onPriceOverrideChange={setPriceOverride}
+          adjustmentComment={adjustmentComment}
+          onAdjustmentCommentChange={setAdjustmentComment}
+          onAdd={handleAdd}
+          onCancel={onCancel}
+          kpUrl={kpUrl}
+          canAdd={!!sheetResult}
+        />
+      }
+    />
   );
 }
