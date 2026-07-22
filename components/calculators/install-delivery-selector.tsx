@@ -13,6 +13,7 @@ export interface FulfilmentState {
   installCity: InstallCity;
   installComplexity: InstallComplexity;
   deliveryCity: 'taraz' | 'shymkent' | 'almaty' | 'other';
+  sundayRequested: boolean;
 }
 
 export const DEFAULT_FULFILMENT: FulfilmentState = {
@@ -20,6 +21,7 @@ export const DEFAULT_FULFILMENT: FulfilmentState = {
   installCity: 'taraz',
   installComplexity: 'light',
   deliveryCity: 'taraz',
+  sundayRequested: false,
 };
 
 export function calcFulfilmentCost(state: FulfilmentState, settings: ProductionSettingsRow): number {
@@ -28,7 +30,7 @@ export function calcFulfilmentCost(state: FulfilmentState, settings: ProductionS
       installMode: 'complexity',
       city: state.installCity,
       complexity: state.installComplexity,
-      sundayRequested: false,
+      sundayRequested: state.sundayRequested,
       settings,
     });
   }
@@ -42,10 +44,12 @@ export function InstallOrDeliverySelector({
   value,
   onChange,
   settings,
+  disableLightComplexity = false,
 }: {
   value: FulfilmentState;
   onChange: (v: FulfilmentState) => void;
   settings: ProductionSettingsRow;
+  disableLightComplexity?: boolean;
 }) {
   return (
     <div className="space-y-3 rounded-lg bg-white p-3">
@@ -76,12 +80,16 @@ export function InstallOrDeliverySelector({
           </select>
           {value.installCity === 'taraz' && (
             <select value={value.installComplexity} onChange={(e) => onChange({ ...value, installComplexity: e.target.value as InstallComplexity })} className="h-10 rounded-lg border border-border bg-white px-2 text-sm">
-              <option value="light">Лёгкий монтаж</option>
+              <option value="light" disabled={disableLightComplexity}>Лёгкий монтаж{disableLightComplexity ? ' (недоступно без каркаса)' : ''}</option>
               <option value="medium">Средний</option>
               <option value="medium_large">Средний, &gt;6м</option>
               <option value="hard">Сложный</option>
             </select>
           )}
+          <label className="col-span-2 flex items-center gap-2 text-xs text-navy-700">
+            <input type="checkbox" checked={value.sundayRequested} onChange={(e) => onChange({ ...value, sundayRequested: e.target.checked })} />
+            Монтаж именно в воскресенье, по требованию клиента
+          </label>
         </div>
       )}
 

@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatTenge } from '@/lib/utils';
-import { calcItemCost, calcInstallCost, calcSheetLayout, resolveNorm, averageHours, type ProductionSettingsRow } from '@/lib/erp-pricing';
+import { calcItemCost, calcSheetLayout, resolveNorm, averageHours, type ProductionSettingsRow } from '@/lib/erp-pricing';
 import { SheetPreview } from '@/components/sheet-preview';
 import { TypeExamplesGallery } from '@/components/type-examples-gallery';
 import { BackingCalculator } from '@/components/calculators/backing-calculator';
 import { LightLettersCalculator } from '@/components/calculators/light-letters-calculator';
 import { LightboxCalculator } from '@/components/calculators/lightbox-calculator';
+import { InstallOrDeliverySelector, DEFAULT_FULFILMENT, calcFulfilmentCost, type FulfilmentState } from '@/components/calculators/install-delivery-selector';
 import { cn } from '@/lib/utils';
 import type { ProductType, ProductCategory, InstallCity, InstallComplexity } from '@/lib/types';
 
@@ -66,9 +67,7 @@ export function ProductCalculator({
   const [widthM, setWidthM] = useState(2);
   const [heightM, setHeightM] = useState(1);
   const [count, setCount] = useState(1);
-  const [city, setCity] = useState<InstallCity>('taraz');
-  const [complexity, setComplexity] = useState<InstallComplexity>('light');
-  const [sundayRequested, setSundayRequested] = useState(false);
+  const [fulfilment, setFulfilment] = useState<FulfilmentState>(DEFAULT_FULFILMENT);
   const [priceOverride, setPriceOverride] = useState<string>('');
   const [adjustmentComment, setAdjustmentComment] = useState('');
   const [signText, setSignText] = useState('');
@@ -100,9 +99,9 @@ export function ProductCalculator({
     const itemCost = sheetLayout ? sheetLayout.cost : areaCost;
     const norm = resolveNorm(productType, area);
     const manufactureHours = averageHours(norm, 'manufacture');
-    const installCost = calcInstallCost({ installMode: productType.install_mode, city, complexity, sundayRequested, settings });
+    const installCost = productType.install_mode === 'complexity' ? calcFulfilmentCost(fulfilment, settings) : 0;
     return { area, itemCost, manufactureHours, installCost };
-  }, [productType, isSheetBased, widthM, heightM, count, city, complexity, sundayRequested, settings]);
+  }, [productType, isSheetBased, widthM, heightM, count, fulfilment, settings]);
 
   function selectType(key: string) {
     setProductKey(key);
@@ -122,9 +121,9 @@ export function ProductCalculator({
       productType: productType!,
       params: productType!.unit === 'm2' ? { widthM, heightM } : { count },
       manufactureHours: preview!.manufactureHours,
-      installComplexity: productType!.install_mode === 'complexity' ? complexity : null,
-      installCity: city,
-      sundayClientRequested: sundayRequested,
+      installComplexity: productType!.install_mode === 'complexity' && fulfilment.mode === 'install' ? fulfilment.installComplexity : null,
+      installCity: fulfilment.mode === 'install' ? fulfilment.installCity : 'taraz',
+      sundayClientRequested: fulfilment.sundayRequested,
       itemCost: preview!.itemCost,
       installCost: preview!.installCost,
       finalCost,
@@ -137,7 +136,7 @@ export function ProductCalculator({
   }
 
   const kpUrl = productType
-    ? `/api/kp?productKey=${encodeURIComponent(productType.key)}&widthM=${widthM}&heightM=${heightM}&count=${count}&city=${city}&complexity=${complexity}&sunday=${sundayRequested}`
+    ? `/api/kp?productKey=${encodeURIComponent(productType.key)}&widthM=${widthM}&heightM=${heightM}&count=${count}&city=${fulfilment.installCity}&complexity=${fulfilment.installComplexity}&sunday=${fulfilment.sundayRequested}`
     : '#';
 
   const otherCategories = activeCategories.filter((c) => c.id !== categoryId);
@@ -220,40 +219,14 @@ export function ProductCalculator({
           )}
 
           {productType.install_mode === 'complexity' && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Город монтажа</Label>
-                <select value={city} onChange={(e) => setCity(e.target.value as InstallCity)} className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm">
-                  <option value="taraz">Тараз</option>
-                  <option value="shymkent">Шымкент</option>
-                  <option value="almaty">Алматы</option>
-                </select>
-              </div>
-              {city === 'taraz' && (
-                <div className="space-y-2">
-                  <Label>Сложность монтажа</Label>
-                  <select value={complexity} onChange={(e) => setComplexity(e.target.value as InstallComplexity)} className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm">
-                    <option value="light">Лёгкий</option>
-                    <option value="medium">Средний</option>
-                    <option value="medium_large">Средний, вывеска &gt;6м</option>
-                    <option value="hard">Сложный</option>
-                  </select>
-                </div>
-              )}
-              <label className="col-span-2 flex items-center gap-2 text-sm text-navy-700">
-                <input type="checkbox" checked={sundayRequested} onChange={(e) => setSundayRequested(e.target.checked)} />
-                Монтаж именно в воскресенье, по требованию клиента
-              </label>
-            </div>
+            <InstallOrDeliverySelector value={fulfilment} onChange={setFulfilment} settings={settings} />
           )}
 
           <div className="flex flex-col gap-2 rounded-lg bg-white px-4 py-3 text-sm">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-muted-foreground">
-                Изделие: {formatTenge(preview.itemCost)} · Монтаж: {preview.installCost > 0 ? formatTenge(preview.installCost) : 'в цене'}
-              </span>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Итого</span>
               <span className="text-lg font-bold text-navy-900">
-                Расчётная: {formatTenge(preview.itemCost + preview.installCost)}
+                {formatTenge(preview.itemCost + preview.installCost)}
               </span>
             </div>
             {mode === 'item' && (

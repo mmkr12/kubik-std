@@ -84,6 +84,13 @@ export default async function HomePage() {
     <main className="bg-mist-gradient">
       <SiteHeader />
 
+      {/* CALCULATOR — наш основной продукт, сразу вверху страницы */}
+      <section className="container-kubik py-10 md:py-14">
+        <h2 className="mb-1 text-2xl font-bold text-navy-900 md:text-3xl">Рассчитайте стоимость вывески</h2>
+        <p className="mb-6 text-muted-foreground">Основное направление Kubik.std — световые вывески</p>
+        <Calculator />
+      </section>
+
       {/* HERO */}
       <section className="container-kubik grid grid-cols-1 items-center gap-10 py-16 md:grid-cols-2 md:py-24">
         <div className="animate-fade-up">
@@ -180,11 +187,6 @@ export default async function HomePage() {
         <div className="mt-8">
           <TypesGallery />
         </div>
-      </section>
-
-      {/* CALCULATOR */}
-      <section className="container-kubik py-16">
-        <Calculator />
       </section>
 
       {/* CONTACTS */}

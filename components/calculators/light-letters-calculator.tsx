@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -11,7 +10,9 @@ import { TypeExamplesGallery } from '@/components/type-examples-gallery';
 import { InstallOrDeliverySelector, DEFAULT_FULFILMENT, calcFulfilmentCost, type FulfilmentState } from '@/components/calculators/install-delivery-selector';
 import { LettersFramePreview } from '@/components/calculators/letters-frame-preview';
 import type { CalculatorDraft } from '@/components/product-calculator';
-import type { ProductType, Font, LightSignagePricing } from '@/lib/types';
+import type { ProductType, LightSignagePricing } from '@/lib/types';
+
+const DEFAULT_FONT_FAMILY = '"Arial", sans-serif';
 
 const TYPE_LABELS: Record<keyof LightSignagePricing['letters']['type_multipliers'], string> = {
   full: 'Полное свечение',
@@ -39,26 +40,15 @@ export function LightLettersCalculator({
   const [goldSilver, setGoldSilver] = useState(false);
   const [letterHeightMm, setLetterHeightMm] = useState(300);
   const [additionalText, setAdditionalText] = useState('');
-  const [fontKey, setFontKey] = useState('');
   const [frameType, setFrameType] = useState<'20x20' | '40x20' | 'none'>('20x20');
   const [totalWidthM, setTotalWidthM] = useState(2);
   const [fulfilment, setFulfilment] = useState<FulfilmentState>(DEFAULT_FULFILMENT);
-  const [fonts, setFonts] = useState<Font[]>([]);
   const [priceOverride, setPriceOverride] = useState('');
   const [adjustmentComment, setAdjustmentComment] = useState('');
 
+  // "Без каркаса" — автоматически сложный монтаж, лёгкий недоступен.
   useEffect(() => {
-    (async () => {
-      const supabase = createClient();
-      const { data } = await supabase.from('fonts').select('*').eq('active', true).order('sort_order');
-      setFonts((data as Font[]) ?? []);
-      if (data && data.length > 0) setFontKey(data[0].key);
-    })();
-  }, []);
-
-  // "Без каркаса" — автоматически сложный монтаж, как ты просил.
-  useEffect(() => {
-    if (frameType === 'none' && fulfilment.mode === 'install') {
+    if (frameType === 'none' && fulfilment.mode === 'install' && fulfilment.installComplexity === 'light') {
       setFulfilment((f) => ({ ...f, installComplexity: 'hard' }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -84,11 +74,11 @@ export function LightLettersCalculator({
 
     onAdd?.({
       productType,
-      params: { letterType, goldSilver, letterHeightMm, additionalText, fontKey, frameType, totalWidthM, fulfilment },
+      params: { letterType, goldSilver, letterHeightMm, additionalText, frameType, totalWidthM, fulfilment },
       manufactureHours,
       installComplexity: fulfilment.mode === 'install' ? fulfilment.installComplexity : null,
       installCity: fulfilment.mode === 'install' ? fulfilment.installCity : 'taraz',
-      sundayClientRequested: false,
+      sundayClientRequested: fulfilment.sundayRequested,
       itemCost: Math.round(letters.total),
       installCost: fulfilmentCost,
       finalCost,
@@ -98,7 +88,6 @@ export function LightLettersCalculator({
   }
 
   const kpUrl = `/api/kp?productKey=${encodeURIComponent(productType.key)}&widthM=${totalWidthM}&heightM=${letterHeightMm / 1000}`;
-  const selectedFont = fonts.find((f) => f.key === fontKey);
 
   return (
     <div className="space-y-4">
@@ -129,21 +118,13 @@ export function LightLettersCalculator({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label>Каркас</Label>
-          <select value={frameType} onChange={(e) => setFrameType(e.target.value as typeof frameType)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
-            <option value="20x20">20×20 мм</option>
-            <option value="40x20">40×20 мм</option>
-            <option value="none">Без каркаса</option>
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label>Шрифт</Label>
-          <select value={fontKey} onChange={(e) => setFontKey(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
-            {fonts.map((f) => <option key={f.key} value={f.key}>{f.name}</option>)}
-          </select>
-        </div>
+      <div className="space-y-1">
+        <Label>Каркас</Label>
+        <select value={frameType} onChange={(e) => setFrameType(e.target.value as typeof frameType)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
+          <option value="20x20">20×20 мм</option>
+          <option value="40x20">40×20 мм</option>
+          <option value="none">Без каркаса</option>
+        </select>
       </div>
       <div className="space-y-1">
         <Label>Текст на вывеске</Label>
@@ -154,18 +135,21 @@ export function LightLettersCalculator({
         text={additionalText}
         totalWidthM={totalWidthM}
         letterHeightMm={letterHeightMm}
-        fontFamily={selectedFont?.css_family ?? 'Arial, sans-serif'}
+        fontFamily={DEFAULT_FONT_FAMILY}
         hasFrame={frameType !== 'none'}
       />
 
-      <InstallOrDeliverySelector value={fulfilment} onChange={setFulfilment} settings={settings} />
+      <InstallOrDeliverySelector
+        value={fulfilment}
+        onChange={setFulfilment}
+        settings={settings}
+        disableLightComplexity={frameType === 'none'}
+      />
 
       <div className="flex flex-col gap-2 rounded-lg bg-white px-4 py-3 text-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-muted-foreground">
-            Буквы: {formatTenge(letters.letterCost)}{letters.goldCost > 0 && ` · Золото/серебро: ${formatTenge(letters.goldCost)}`}{letters.frameCost > 0 && ` · Каркас: ${formatTenge(letters.frameCost)}`}
-          </span>
-          <span className="text-lg font-bold text-navy-900">Расчётная: {formatTenge(calculated)}</span>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Итого</span>
+          <span className="text-lg font-bold text-navy-900">{formatTenge(calculated)}</span>
         </div>
         {mode === 'item' && (
           <div className="grid grid-cols-1 gap-2 border-t border-border pt-2 sm:grid-cols-2">

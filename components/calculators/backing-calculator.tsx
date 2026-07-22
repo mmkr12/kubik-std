@@ -11,7 +11,7 @@ import { TypeExamplesGallery } from '@/components/type-examples-gallery';
 import { InstallOrDeliverySelector, DEFAULT_FULFILMENT, calcFulfilmentCost, type FulfilmentState } from '@/components/calculators/install-delivery-selector';
 import { LedPsuSelector, DEFAULT_LED_PSU, type LedPsuState } from '@/components/calculators/led-psu-selector';
 import type { CalculatorDraft } from '@/components/product-calculator';
-import type { ProductType, SheetMaterialPrice, Font } from '@/lib/types';
+import type { ProductType, SheetMaterialPrice } from '@/lib/types';
 
 export function BackingCalculator({
   productType,
@@ -32,24 +32,17 @@ export function BackingCalculator({
   const [heightM, setHeightM] = useState(0.6);
   const [letterHeightMm, setLetterHeightMm] = useState(300);
   const [additionalText, setAdditionalText] = useState('');
-  const [fontKey, setFontKey] = useState('');
   const [fulfilment, setFulfilment] = useState<FulfilmentState>(DEFAULT_FULFILMENT);
   const [ledPsu, setLedPsu] = useState<LedPsuState>(DEFAULT_LED_PSU);
   const [sheetTiers, setSheetTiers] = useState<SheetMaterialPrice[]>([]);
-  const [fonts, setFonts] = useState<Font[]>([]);
   const [priceOverride, setPriceOverride] = useState('');
   const [adjustmentComment, setAdjustmentComment] = useState('');
 
   useEffect(() => {
     (async () => {
       const supabase = createClient();
-      const [{ data: tiers }, { data: fontsData }] = await Promise.all([
-        supabase.from('sheet_material_prices').select('*'),
-        supabase.from('fonts').select('*').eq('active', true).order('sort_order'),
-      ]);
-      setSheetTiers((tiers as SheetMaterialPrice[]) ?? []);
-      setFonts((fontsData as Font[]) ?? []);
-      if (fontsData && fontsData.length > 0) setFontKey(fontsData[0].key);
+      const { data } = await supabase.from('sheet_material_prices').select('*');
+      setSheetTiers((data as SheetMaterialPrice[]) ?? []);
     })();
   }, []);
 
@@ -79,13 +72,13 @@ export function BackingCalculator({
     onAdd?.({
       productType,
       params: {
-        widthM, heightM, material, shape, letterHeightMm, additionalText, fontKey,
+        widthM, heightM, material, shape, letterHeightMm, additionalText,
         ledType: ledPsu.ledType, psuType: ledPsu.psuType, fulfilment,
       },
       manufactureHours,
       installComplexity: fulfilment.mode === 'install' ? fulfilment.installComplexity : null,
       installCity: fulfilment.mode === 'install' ? fulfilment.installCity : 'taraz',
-      sundayClientRequested: false,
+      sundayClientRequested: fulfilment.sundayRequested,
       itemCost,
       installCost: fulfilmentCost,
       finalCost,
@@ -99,7 +92,6 @@ export function BackingCalculator({
   }
 
   const kpUrl = `/api/kp?productKey=${encodeURIComponent(productType.key)}&widthM=${widthM}&heightM=${heightM}`;
-  const selectedFont = fonts.find((f) => f.key === fontKey);
 
   return (
     <div className="space-y-4">
@@ -134,35 +126,25 @@ export function BackingCalculator({
       </div>
 
       {sheetResult && (
-        <p className="text-xs text-muted-foreground">
-          Раскладка: {sheetResult.tierLabel} · себестоимость материала {formatTenge(sheetResult.baseCost)}
-        </p>
+        <p className="text-xs text-muted-foreground">Раскладка: {sheetResult.tierLabel}</p>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label>Высота букв, мм</Label>
-          <Input type="number" value={letterHeightMm} onChange={(e) => setLetterHeightMm(Number(e.target.value))} />
-        </div>
-        <div className="space-y-1">
-          <Label>Шрифт</Label>
-          <select value={fontKey} onChange={(e) => setFontKey(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
-            {fonts.map((f) => <option key={f.key} value={f.key}>{f.name}</option>)}
-          </select>
-        </div>
+      <div className="space-y-1">
+        <Label>Высота букв, мм</Label>
+        <Input type="number" value={letterHeightMm} onChange={(e) => setLetterHeightMm(Number(e.target.value))} />
       </div>
       <div className="space-y-1">
         <Label>Дополнительный текст (необязательно)</Label>
-        <Input value={additionalText} onChange={(e) => setAdditionalText(e.target.value)} style={selectedFont ? { fontFamily: selectedFont.css_family } : undefined} />
+        <Input value={additionalText} onChange={(e) => setAdditionalText(e.target.value)} />
       </div>
 
       <LedPsuSelector value={ledPsu} onChange={setLedPsu} settings={settings} />
       <InstallOrDeliverySelector value={fulfilment} onChange={setFulfilment} settings={settings} />
 
       <div className="flex flex-col gap-2 rounded-lg bg-white px-4 py-3 text-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-muted-foreground">Изделие: {formatTenge(itemCost)} · {fulfilment.mode === 'delivery' ? 'Доставка' : 'Монтаж'}: {fulfilmentCost > 0 ? formatTenge(fulfilmentCost) : '—'}</span>
-          <span className="text-lg font-bold text-navy-900">Расчётная: {formatTenge(calculated)}</span>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Итого</span>
+          <span className="text-lg font-bold text-navy-900">{formatTenge(calculated)}</span>
         </div>
         {mode === 'item' && (
           <div className="grid grid-cols-1 gap-2 border-t border-border pt-2 sm:grid-cols-2">

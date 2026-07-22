@@ -54,7 +54,7 @@ export function LightboxCalculator({
       manufactureHours,
       installComplexity: fulfilment.mode === 'install' ? fulfilment.installComplexity : null,
       installCity: fulfilment.mode === 'install' ? fulfilment.installCity : 'taraz',
-      sundayClientRequested: false,
+      sundayClientRequested: fulfilment.sundayRequested,
       itemCost: Math.round(result.total),
       installCost: fulfilmentCost,
       finalCost,
@@ -105,11 +105,9 @@ export function LightboxCalculator({
       <InstallOrDeliverySelector value={fulfilment} onChange={setFulfilment} settings={settings} />
 
       <div className="flex flex-col gap-2 rounded-lg bg-white px-4 py-3 text-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-muted-foreground">
-            Сборка: {formatTenge(result.assembly)} · Печать/резка: {formatTenge(result.applicationCost)} · LED+БП: {formatTenge(result.ledCost + result.psuCost)}
-          </span>
-          <span className="text-lg font-bold text-navy-900">Расчётная: {formatTenge(calculated)}</span>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Итого</span>
+          <span className="text-lg font-bold text-navy-900">{formatTenge(calculated)}</span>
         </div>
         {mode === 'item' && (
           <div className="grid grid-cols-1 gap-2 border-t border-border pt-2 sm:grid-cols-2">
