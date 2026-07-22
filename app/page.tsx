@@ -86,8 +86,6 @@ export default async function HomePage() {
 
       {/* CALCULATOR — наш основной продукт, сразу вверху страницы */}
       <section className="container-kubik py-10 md:py-14">
-        <h2 className="mb-1 text-2xl font-bold text-navy-900 md:text-3xl">Рассчитайте стоимость вывески</h2>
-        <p className="mb-6 text-muted-foreground">Основное направление Kubik.std — световые вывески</p>
         <Calculator />
       </section>
 
