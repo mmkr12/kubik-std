@@ -47,12 +47,12 @@ export function LightboxCalculator({
   const calculated = Math.round(result.total) + fulfilmentCost;
   const area = widthM * heightM;
 
-  const materialsAmount = Math.round(result.ledFund + result.psuCost);
   const priceLines: PriceLine[] = [
-    { key: 'materials', label: 'Материалы', amount: materialsAmount },
-    { key: 'production', label: 'Производство', amount: Math.round(result.total) - materialsAmount },
-    { key: 'install', label: 'Монтаж', amount: fulfilment.mode === 'install' ? fulfilmentCost : 0 },
-    { key: 'delivery', label: 'Доставка', amount: fulfilment.mode === 'delivery' ? fulfilmentCost : 0 },
+    { label: `Сборка (${shape === 'simple' ? 'простая форма' : 'сложная форма'})`, amount: Math.round(result.assembly) },
+    { label: 'Нанесение изображения', amount: Math.round(result.applicationCost) },
+    { label: ledPsu.ledType === 'modules' ? 'Светодиодные модули' : 'Светодиодная лента', amount: Math.round(result.ledCost) },
+    { label: ledPsu.psuType === 'ip54' ? 'Блок питания IP54' : 'Блок питания IP67', amount: Math.round(result.psuCost) },
+    { label: fulfilment.mode === 'delivery' ? 'Доставка' : 'Монтаж', amount: fulfilmentCost },
   ];
 
   function handleAdd() {

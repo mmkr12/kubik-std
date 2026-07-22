@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Ruler } from 'lucide-react';
+import { Ruler, Zap, Megaphone, Printer, Type, Layers, Square, Box, Sparkles, type LucideIcon } from 'lucide-react';
 import { calcItemCost, calcSheetLayout, resolveNorm, averageHours, type ProductionSettingsRow } from '@/lib/erp-pricing';
 import { SheetPreview } from '@/components/sheet-preview';
 import { TypeExamplesGallery } from '@/components/type-examples-gallery';
@@ -9,7 +9,6 @@ import { BackingCalculator } from '@/components/calculators/backing-calculator';
 import { LightLettersCalculator } from '@/components/calculators/light-letters-calculator';
 import { LightboxCalculator } from '@/components/calculators/lightbox-calculator';
 import { InstallOrDeliverySelector, DEFAULT_FULFILMENT, calcFulfilmentCost, type FulfilmentState } from '@/components/calculators/install-delivery-selector';
-import { TrustBadges } from '@/components/calculators/ui/trust-badges';
 import { CalculatorShell } from '@/components/calculators/ui/calculator-shell';
 import { CalculatorFooter } from '@/components/calculators/ui/calculator-footer';
 import { AccordionSection } from '@/components/calculators/ui/accordion-section';
@@ -18,6 +17,21 @@ import { PriceBreakdown, type PriceLine } from '@/components/calculators/ui/pric
 import { StatsRow } from '@/components/calculators/ui/stats-row';
 import { cn } from '@/lib/utils';
 import type { ProductType, ProductCategory, InstallCity, InstallComplexity } from '@/lib/types';
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  light_signage: Zap,
+  outdoor_ads: Megaphone,
+  printing: Printer,
+};
+
+const TYPE_ICONS: Record<string, LucideIcon> = {
+  light_letters: Type,
+  light_sign_backing: Layers,
+  lightbox: Square,
+  alucobond_inlay: Box,
+  alucobond_letters: Type,
+  custom: Sparkles,
+};
 
 export interface CalculatorDraft {
   productType: ProductType;
@@ -143,54 +157,66 @@ export function ProductCalculator({
     ? `/api/kp?productKey=${encodeURIComponent(productType.key)}&widthM=${widthM}&heightM=${heightM}&count=${count}&city=${fulfilment.installCity}&complexity=${fulfilment.installComplexity}&sunday=${fulfilment.sundayRequested}`
     : '#';
 
-  const otherCategories = activeCategories.filter((c) => c.id !== categoryId);
   const isSpecialized = productType && ['light_sign_backing', 'light_letters', 'lightbox'].includes(productType.key);
 
   const priceLines: PriceLine[] = preview
     ? [
-        { key: 'materials', label: 'Материалы', amount: preview.itemCost },
-        { key: 'install', label: 'Монтаж', amount: fulfilment.mode === 'install' ? preview.installCost : 0 },
-        { key: 'delivery', label: 'Доставка', amount: fulfilment.mode === 'delivery' ? preview.installCost : 0 },
+        { label: productType?.name ?? 'Изделие', amount: preview.itemCost },
+        { label: fulfilment.mode === 'delivery' ? 'Доставка' : 'Монтаж', amount: preview.installCost },
       ]
     : [];
 
   return (
-    <div className="space-y-4">
-      <TrustBadges />
-
-      <div className="space-y-4 rounded-xl border border-border bg-mist-50 p-4">
-        {/* Переключатель типов изделия текущей категории — всегда сверху,
-            клик сразу меняет калькулятор снизу, без промежуточных шагов. */}
+    <div className="space-y-4 rounded-xl border border-border bg-mist-50 p-4">
+        {/* Категории — пилюли с иконкой */}
         <div className="flex flex-wrap gap-2">
-          {typesInCategory.map((p) => (
-            <button
-              key={p.key}
-              onClick={() => selectType(p.key)}
-              className={cn(
-                'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
-                p.key === productKey ? 'bg-blue-gradient text-white' : 'bg-white text-navy-700 hover:bg-blue-50 border border-border'
-              )}
-            >
-              {p.name}
-              {p.needs_review && <span className="ml-1 text-xs font-normal opacity-70">(вручную)</span>}
-            </button>
-          ))}
+          {activeCategories.map((c) => {
+            const CatIcon = CATEGORY_ICONS[c.key] ?? Ruler;
+            const isActive = c.id === categoryId;
+            return (
+              <button
+                key={c.id}
+                onClick={() => selectCategory(c.id)}
+                className={cn(
+                  'flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+                  isActive ? 'border-transparent bg-blue-gradient text-white' : 'border-border bg-white text-navy-700 hover:bg-blue-50'
+                )}
+              >
+                <CatIcon className="h-4 w-4" /> {c.name}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Типы изделий текущей категории — карточки с иконкой, клик сразу
+            меняет калькулятор снизу, без промежуточных шагов. */}
+        <div className="flex flex-wrap gap-2">
+          {typesInCategory.map((p) => {
+            const TypeIcon = TYPE_ICONS[p.key] ?? Ruler;
+            const isActive = p.key === productKey;
+            return (
+              <button
+                key={p.key}
+                onClick={() => selectType(p.key)}
+                className={cn(
+                  'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors',
+                  isActive ? 'border-blue-500 bg-blue-50' : 'border-border bg-white hover:bg-mist-50'
+                )}
+              >
+                <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', isActive ? 'bg-blue-gradient text-white' : 'bg-mist-100 text-navy-700')}>
+                  <TypeIcon className="h-4 w-4" />
+                </span>
+                <span className="text-sm font-medium text-navy-900">
+                  {p.name}
+                  {p.needs_review && <span className="ml-1 text-xs font-normal text-amber-600">(вручную)</span>}
+                </span>
+              </button>
+            );
+          })}
           {typesInCategory.length === 0 && (
             <p className="text-sm text-muted-foreground">В этой категории пока нет изделий — скоро появятся.</p>
           )}
         </div>
-
-        {/* Предложение других категорий — не шаг, а доп. подсказка сбоку. */}
-        {otherCategories.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
-            <span>Нужна ещё продукция?</span>
-            {otherCategories.map((c) => (
-              <button key={c.id} onClick={() => selectCategory(c.id)} className="rounded-full bg-white px-2.5 py-1 font-medium text-blue-700 hover:bg-blue-100">
-                {c.name} →
-              </button>
-            ))}
-          </div>
-        )}
 
         {productType && productType.key === 'light_sign_backing' && (
           <BackingCalculator productType={productType} settings={settings} mode={mode} onAdd={onAdd} onCancel={onCancel} />
@@ -270,6 +296,5 @@ export function ProductCalculator({
           />
         )}
       </div>
-    </div>
   );
 }

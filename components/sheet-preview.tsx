@@ -1,7 +1,6 @@
 'use client';
 
 import { calcSheetLayout, getSheetHints } from '@/lib/erp-pricing';
-import { formatTenge } from '@/lib/utils';
 import type { ProductType } from '@/lib/types';
 import { Lightbulb } from 'lucide-react';
 
@@ -38,9 +37,9 @@ export function SheetPreview({
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>Лист {productType.sheet_width_m} × {productType.sheet_height_m} м</span>
         {layout.fitsInSheet ? (
-          <span className="font-medium text-navy-900">{layout.tier?.label} — {formatTenge(layout.cost)}</span>
+          <span className="font-medium text-navy-900">{layout.tier?.label}</span>
         ) : (
-          <span className="font-medium text-navy-900">{layout.sheetsNeeded} листа — {formatTenge(layout.cost)}</span>
+          <span className="font-medium text-navy-900">{layout.sheetsNeeded} листа</span>
         )}
       </div>
 

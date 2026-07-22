@@ -65,10 +65,10 @@ export function LightLettersCalculator({
   const area = totalWidthM * (letterHeightMm / 1000);
 
   const priceLines: PriceLine[] = [
-    { key: 'materials', label: 'Материалы', amount: Math.round(letters.letterFund + letters.frameFund) },
-    { key: 'production', label: 'Производство', amount: Math.round(letters.total - letters.letterFund - letters.frameFund) },
-    { key: 'install', label: 'Монтаж', amount: fulfilment.mode === 'install' ? fulfilmentCost : 0 },
-    { key: 'delivery', label: 'Доставка', amount: fulfilment.mode === 'delivery' ? fulfilmentCost : 0 },
+    { label: `Буквы (${TYPE_LABELS[letterType]})`, amount: Math.round(letters.letterCost) },
+    { label: 'Золото / серебро', amount: Math.round(letters.goldCost) },
+    { label: frameType !== 'none' ? `Каркас ${frameType}` : '', amount: Math.round(letters.frameCost) },
+    { label: fulfilment.mode === 'delivery' ? 'Доставка' : 'Монтаж', amount: fulfilmentCost },
   ];
 
   function handleAdd() {

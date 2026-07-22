@@ -70,12 +70,11 @@ export function BackingCalculator({
   const fulfilmentCost = calcFulfilmentCost(fulfilment, settings);
   const calculated = itemCost + fulfilmentCost;
 
-  const materialsAmount = Math.round((sheetResult?.baseCost ?? 0) + ledFund + psuCost);
   const priceLines: PriceLine[] = [
-    { key: 'materials', label: 'Материалы', amount: materialsAmount },
-    { key: 'production', label: 'Производство', amount: itemCost - materialsAmount },
-    { key: 'install', label: 'Монтаж', amount: fulfilment.mode === 'install' ? fulfilmentCost : 0 },
-    { key: 'delivery', label: 'Доставка', amount: fulfilment.mode === 'delivery' ? fulfilmentCost : 0 },
+    { label: `Подложка (${sheetResult?.tierLabel ?? '—'})`, amount: Math.round(materialClientPrice) },
+    { label: ledPsu.ledType === 'modules' ? 'Светодиодные модули' : 'Светодиодная лента', amount: Math.round(ledCost) },
+    { label: ledPsu.psuType === 'ip54' ? 'Блок питания IP54' : 'Блок питания IP67', amount: Math.round(psuCost) },
+    { label: fulfilment.mode === 'delivery' ? 'Доставка' : 'Монтаж', amount: fulfilmentCost },
   ];
 
   function handleAdd() {
