@@ -22,18 +22,21 @@ export function SheetPreview({
   const hints = getSheetHints(productType, widthM, heightM);
 
   const maxBox = 240;
-  const sheetW = productType.sheet_width_m;
-  const sheetH = productType.sheet_height_m;
-  const scale = Math.min(maxBox / sheetW, maxBox / sheetH);
-  const sheetPxW = sheetW * scale;
-  const sheetPxH = sheetH * scale;
-  const signPxW = Math.min(widthM, sheetW) * scale;
-  const signPxH = Math.min(heightM, sheetH) * scale;
+  // Показываем лист горизонтально (длинной стороной по ширине) — вывески
+  // у нас в основном широкие. Это только для наглядности картинки, на
+  // расчёт стоимости не влияет.
+  const sheetDisplayW = Math.max(productType.sheet_width_m, productType.sheet_height_m);
+  const sheetDisplayH = Math.min(productType.sheet_width_m, productType.sheet_height_m);
+  const scale = Math.min(maxBox / sheetDisplayW, maxBox / sheetDisplayH);
+  const sheetPxW = sheetDisplayW * scale;
+  const sheetPxH = sheetDisplayH * scale;
+  const signPxW = Math.min(widthM * scale, sheetPxW);
+  const signPxH = Math.min(heightM * scale, sheetPxH);
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-white p-4">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>Лист {sheetW} × {sheetH} м</span>
+        <span>Лист {productType.sheet_width_m} × {productType.sheet_height_m} м</span>
         {layout.fitsInSheet ? (
           <span className="font-medium text-navy-900">{layout.tier?.label} — {formatTenge(layout.cost)}</span>
         ) : (

@@ -1,7 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +8,7 @@ import { formatTenge } from '@/lib/utils';
 import { calcItemCost, calcInstallCost, calcSheetLayout, resolveNorm, averageHours, type ProductionSettingsRow } from '@/lib/erp-pricing';
 import { SheetPreview } from '@/components/sheet-preview';
 import { TypeExamplesGallery } from '@/components/type-examples-gallery';
+import { cn } from '@/lib/utils';
 import type { ProductType, ProductCategory, InstallCity, InstallComplexity } from '@/lib/types';
 
 export interface CalculatorDraft {
@@ -24,11 +24,11 @@ export interface CalculatorDraft {
   adjustmentComment: string | null;
 }
 
-type Step = 'category' | 'type' | 'form';
-
 // Единый калькулятор — используется и на публичном сайте, и внутри
 // заявки в админке, чтобы функциональность совпадала на 100%.
-// Логика: категория → изделие → специализированный расчёт (п.22 ТЗ).
+// По умолчанию сразу открыт калькулятор "Световые вывески" (основное
+// направление) без промежуточных экранов; сверху — переключатель типов
+// изделия этой категории, и отдельно — предложение других категорий.
 // mode="public"  — калькулятор на лендинге: без кнопок "Добавить/Отмена",
 //                   вместо этого ссылка "Открыть КП".
 // mode="item"    — калькулятор внутри заявки в админке: с кнопками
@@ -48,7 +48,15 @@ export function ProductCalculator({
   onAdd?: (draft: CalculatorDraft) => void;
   onCancel?: () => void;
 }) {
-  const [step, setStep] = useState<Step>('category');
+  const activeCategories = useMemo(
+    () => [...categories].filter((c) => c.active).sort((a, b) => a.sort_order - b.sort_order),
+    [categories]
+  );
+  const defaultCategoryId = useMemo(() => {
+    const main = activeCategories.find((c) => c.key === 'light_signage');
+    return main?.id ?? activeCategories[0]?.id ?? null;
+  }, [activeCategories]);
+
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [productKey, setProductKey] = useState('');
   const [widthM, setWidthM] = useState(2);
@@ -61,10 +69,24 @@ export function ProductCalculator({
   const [adjustmentComment, setAdjustmentComment] = useState('');
   const [signText, setSignText] = useState('');
 
-  const activeCategories = categories.filter((c) => c.active).sort((a, b) => a.sort_order - b.sort_order);
-  const typesInCategory = productTypes.filter((p) => p.category_id === categoryId && p.active);
-  const productType = productTypes.find((p) => p.key === productKey);
+  // Инициализация — сразу категория "Световые вывески" и первый её тип,
+  // без выбора вручную.
+  useEffect(() => {
+    if (!categoryId && defaultCategoryId) setCategoryId(defaultCategoryId);
+  }, [defaultCategoryId, categoryId]);
 
+  const typesInCategory = productTypes.filter((p) => p.category_id === categoryId && p.active);
+
+  useEffect(() => {
+    if (categoryId && typesInCategory.length > 0 && !typesInCategory.some((t) => t.key === productKey)) {
+      setProductKey(typesInCategory[0].key);
+      setPriceOverride('');
+      setAdjustmentComment('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryId, productTypes]);
+
+  const productType = productTypes.find((p) => p.key === productKey);
   const isSheetBased = !!productType?.sheet_tiers?.length;
 
   const preview = useMemo(() => {
@@ -74,36 +96,18 @@ export function ProductCalculator({
     const itemCost = sheetLayout ? sheetLayout.cost : areaCost;
     const norm = resolveNorm(productType, area);
     const manufactureHours = averageHours(norm, 'manufacture');
-    const installCost = calcInstallCost({
-      installMode: productType.install_mode,
-      city,
-      complexity,
-      sundayRequested,
-      settings,
-    });
+    const installCost = calcInstallCost({ installMode: productType.install_mode, city, complexity, sundayRequested, settings });
     return { area, itemCost, manufactureHours, installCost };
   }, [productType, isSheetBased, widthM, heightM, count, city, complexity, sundayRequested, settings]);
-
-  function selectCategory(id: string) {
-    setCategoryId(id);
-    setStep('type');
-  }
 
   function selectType(key: string) {
     setProductKey(key);
     setPriceOverride('');
     setAdjustmentComment('');
-    setStep('form');
   }
 
-  function backToCategories() {
-    setStep('category');
-    setCategoryId(null);
-    setProductKey('');
-  }
-
-  function backToTypes() {
-    setStep('type');
+  function selectCategory(id: string) {
+    setCategoryId(id);
     setProductKey('');
   }
 
@@ -132,56 +136,45 @@ export function ProductCalculator({
     ? `/api/kp?productKey=${encodeURIComponent(productType.key)}&widthM=${widthM}&heightM=${heightM}&count=${count}&city=${city}&complexity=${complexity}&sunday=${sundayRequested}`
     : '#';
 
+  const otherCategories = activeCategories.filter((c) => c.id !== categoryId);
+
   return (
     <div className="space-y-4 rounded-xl border border-border bg-mist-50 p-4">
-      {step === 'category' && (
-        <div>
-          <Label className="mb-2 block">Категория продукции</Label>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {activeCategories.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => selectCategory(c.id)}
-                className="rounded-xl border border-border bg-white p-3 text-left text-sm font-medium text-navy-900 transition-colors hover:border-blue-500 hover:bg-blue-50"
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {step === 'type' && (
-        <div>
-          <button onClick={backToCategories} className="mb-2 flex items-center gap-1 text-sm text-muted-foreground hover:text-navy-900">
-            <ArrowLeft className="h-3.5 w-3.5" /> Назад к категориям
+      {/* Переключатель типов изделия текущей категории — всегда сверху,
+          клик сразу меняет калькулятор снизу, без промежуточных шагов. */}
+      <div className="flex flex-wrap gap-2">
+        {typesInCategory.map((p) => (
+          <button
+            key={p.key}
+            onClick={() => selectType(p.key)}
+            className={cn(
+              'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+              p.key === productKey ? 'bg-blue-gradient text-white' : 'bg-white text-navy-700 hover:bg-blue-50 border border-border'
+            )}
+          >
+            {p.name}
+            {p.needs_review && <span className="ml-1 text-xs font-normal opacity-70">(вручную)</span>}
           </button>
-          <Label className="mb-2 block">Тип изделия</Label>
-          {typesInCategory.length === 0 ? (
-            <p className="text-sm text-muted-foreground">В этой категории пока нет изделий — скоро появятся.</p>
-          ) : (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {typesInCategory.map((p) => (
-                <button
-                  key={p.key}
-                  onClick={() => selectType(p.key)}
-                  className="rounded-xl border border-border bg-white p-3 text-left text-sm font-medium text-navy-900 transition-colors hover:border-blue-500 hover:bg-blue-50"
-                >
-                  {p.name}
-                  {p.needs_review && <span className="ml-1 text-xs font-normal text-amber-600">(расчёт вручную)</span>}
-                </button>
-              ))}
-            </div>
-          )}
+        ))}
+        {typesInCategory.length === 0 && (
+          <p className="text-sm text-muted-foreground">В этой категории пока нет изделий — скоро появятся.</p>
+        )}
+      </div>
+
+      {/* Предложение других категорий — не шаг, а доп. подсказка сбоку. */}
+      {otherCategories.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          <span>Нужна ещё продукция?</span>
+          {otherCategories.map((c) => (
+            <button key={c.id} onClick={() => selectCategory(c.id)} className="rounded-full bg-white px-2.5 py-1 font-medium text-blue-700 hover:bg-blue-100">
+              {c.name} →
+            </button>
+          ))}
         </div>
       )}
 
-      {step === 'form' && productType && preview && (
+      {productType && preview && (
         <div className="space-y-4">
-          <button onClick={backToTypes} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-navy-900">
-            <ArrowLeft className="h-3.5 w-3.5" /> {productType.name}
-          </button>
-
           <TypeExamplesGallery productTypeId={productType.id} productTypeKey={productType.key} />
 
           {productType.unit === 'm2' ? (
