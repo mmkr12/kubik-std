@@ -1,9 +1,10 @@
-import type { InstallCity, InstallComplexity, ProductType, ProductTypeNorm, SheetTier } from './types';
+import type { InstallCity, InstallComplexity, ProductType, ProductTypeNorm, SheetTier, LightSignagePricing, SheetMaterialPrice } from './types';
 
 export interface ProductionSettingsRow {
   daily_capacity_hours: number;
   sunday_multiplier: number;
   weekday_surcharge_small: number;
+  light_signage_pricing: LightSignagePricing;
   install_pricing: {
     taraz: {
       light: { min: number; max: number };
@@ -112,6 +113,130 @@ export function getSheetHints(productType: ProductType, widthM: number, heightM:
 
 function formatTengeShort(n: number) {
   return `${Math.round(n).toLocaleString('ru-RU')} ₸`;
+}
+
+// ---------------------------------------------------------------------
+// Специализированные калькуляторы световых вывесок
+// ---------------------------------------------------------------------
+
+export interface SheetMaterialResult {
+  fraction: number;
+  tierLabel: string;
+  baseCost: number; // в фонд закупа материала
+  clientPrice: number; // с наценкой (без учёта формы/монтажа)
+}
+
+// Ищем ближайшую подходящую долю листа 120×240см (площадь 28800 см²)
+// для нужного материала; за пределами таблицы — линейная экстраполяция
+// от последней известной точки.
+export function calcSheetMaterialPrice(
+  materialKey: 'composite' | 'pvc',
+  widthM: number,
+  heightM: number,
+  tiers: SheetMaterialPrice[]
+): SheetMaterialResult {
+  const rows = tiers.filter((t) => t.material_key === materialKey).sort((a, b) => a.fraction - b.fraction);
+  const sheetAreaCm2 = 120 * 240;
+  const areaCm2 = widthM * 100 * heightM * 100;
+  const neededFraction = areaCm2 / sheetAreaCm2;
+
+  const fit = rows.find((r) => neededFraction <= r.fraction);
+  if (fit) {
+    return { fraction: fit.fraction, tierLabel: fit.label, baseCost: fit.base_cost, clientPrice: Math.round(fit.base_cost * fit.markup_multiplier) };
+  }
+
+  const last = rows[rows.length - 1];
+  const ratio = neededFraction / last.fraction;
+  const baseCost = Math.round(last.base_cost * ratio);
+  return { fraction: neededFraction, tierLabel: `~${Math.round(neededFraction)} листов`, baseCost, clientPrice: Math.round(baseCost * last.markup_multiplier) };
+}
+
+export function calcDeliveryCost(city: 'taraz' | 'shymkent' | 'almaty' | 'other', pricing: LightSignagePricing): number {
+  if (city === 'other') return pricing.delivery.other_individual_estimate;
+  return pricing.delivery[city];
+}
+
+export interface LetterCostResult {
+  letterCost: number;
+  letterFund: number;
+  goldCost: number;
+  frameCost: number;
+  frameFund: number;
+  total: number;
+  totalFund: number;
+}
+
+export function calcLightLettersCost(opts: {
+  letterHeightMm: number;
+  letterType: keyof LightSignagePricing['letters']['type_multipliers'];
+  goldSilver: boolean;
+  frameType: '20x20' | '40x20' | 'none';
+  totalWidthM: number;
+  pricing: LightSignagePricing;
+}): LetterCostResult {
+  const { letterHeightMm, letterType, goldSilver, frameType, totalWidthM, pricing } = opts;
+  const cm = letterHeightMm / 10;
+  const { price_per_cm_base, fund_per_cm, type_multipliers, gold_silver_multiplier } = pricing.letters;
+
+  const letterFund = cm * fund_per_cm;
+  const letterMargin = cm * price_per_cm_base * type_multipliers[letterType];
+  const letterCost = letterMargin + letterFund;
+
+  const goldCost = goldSilver ? cm * price_per_cm_base * gold_silver_multiplier : 0;
+
+  let frameCost = 0;
+  let frameFund = 0;
+  if (frameType !== 'none') {
+    const rate = frameType === '20x20' ? pricing.letters.frame.size_20x20_price_per_m : pricing.letters.frame.size_40x20_price_per_m;
+    const meters = totalWidthM * 2; // верхняя и нижняя полосы каркаса
+    frameCost = meters * rate;
+    frameFund = meters * pricing.letters.frame.frame_fund_per_m;
+  }
+
+  return {
+    letterCost,
+    letterFund,
+    goldCost,
+    frameCost,
+    frameFund,
+    total: letterCost + goldCost + frameCost,
+    totalFund: letterFund + frameFund,
+  };
+}
+
+export interface LightboxCostResult {
+  assembly: number;
+  applicationCost: number;
+  ledCost: number;
+  ledFund: number;
+  psuCost: number;
+  total: number;
+}
+
+export function calcLightboxCost(opts: {
+  shape: 'simple' | 'complex';
+  applicationMethod: 'uv_print' | 'oracal_cut' | 'acrylic_cut';
+  widthM: number;
+  heightM: number;
+  ledType: 'modules' | 'tape';
+  psuType: 'ip54' | 'ip67';
+  pricing: LightSignagePricing;
+}): LightboxCostResult {
+  const { shape, applicationMethod, widthM, heightM, ledType, psuType, pricing } = opts;
+  const area = widthM * heightM;
+
+  const assembly = shape === 'simple' ? pricing.lightbox.assembly_simple : pricing.lightbox.assembly_complex;
+  const applicationCost = area * pricing.lightbox.application[applicationMethod];
+  const ledRate = ledType === 'modules' ? pricing.led.modules_price_per_m2 : pricing.led.tape_price_per_m2;
+  const ledFundPct = ledType === 'modules' ? pricing.led.modules_fund_pct : pricing.led.tape_fund_pct;
+  const ledCost = area * ledRate;
+  const ledFund = ledCost * (ledFundPct / 100);
+  const psuCost = psuType === 'ip54' ? pricing.psu.ip54_price : pricing.psu.ip67_price;
+
+  const subtotal = assembly + applicationCost + ledCost + psuCost;
+  const minPrice = shape === 'simple' ? pricing.lightbox.min_price_simple : pricing.lightbox.min_price_complex;
+
+  return { assembly, applicationCost, ledCost, ledFund, psuCost, total: Math.max(subtotal, minPrice) };
 }
 
 export function calcInstallCost(opts: {

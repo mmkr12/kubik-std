@@ -8,6 +8,9 @@ import { formatTenge } from '@/lib/utils';
 import { calcItemCost, calcInstallCost, calcSheetLayout, resolveNorm, averageHours, type ProductionSettingsRow } from '@/lib/erp-pricing';
 import { SheetPreview } from '@/components/sheet-preview';
 import { TypeExamplesGallery } from '@/components/type-examples-gallery';
+import { BackingCalculator } from '@/components/calculators/backing-calculator';
+import { LightLettersCalculator } from '@/components/calculators/light-letters-calculator';
+import { LightboxCalculator } from '@/components/calculators/lightbox-calculator';
 import { cn } from '@/lib/utils';
 import type { ProductType, ProductCategory, InstallCity, InstallComplexity } from '@/lib/types';
 
@@ -22,6 +25,7 @@ export interface CalculatorDraft {
   installCost: number;
   finalCost: number;
   adjustmentComment: string | null;
+  materialFundBreakdown?: { materialName: string; amount: number }[];
 }
 
 // Единый калькулятор — используется и на публичном сайте, и внутри
@@ -173,7 +177,17 @@ export function ProductCalculator({
         </div>
       )}
 
-      {productType && preview && (
+      {productType && productType.key === 'light_sign_backing' && (
+        <BackingCalculator productType={productType} settings={settings} mode={mode} onAdd={onAdd} onCancel={onCancel} />
+      )}
+      {productType && productType.key === 'light_letters' && (
+        <LightLettersCalculator productType={productType} settings={settings} mode={mode} onAdd={onAdd} onCancel={onCancel} />
+      )}
+      {productType && productType.key === 'lightbox' && (
+        <LightboxCalculator productType={productType} settings={settings} mode={mode} onAdd={onAdd} onCancel={onCancel} />
+      )}
+
+      {productType && preview && !['light_sign_backing', 'light_letters', 'lightbox'].includes(productType.key) && (
         <div className="space-y-4">
           <TypeExamplesGallery productTypeId={productType.id} productTypeKey={productType.key} />
 

@@ -77,6 +77,49 @@ export interface SheetTier {
   price: number;
 }
 
+export interface SheetMaterialPrice {
+  id: string;
+  material_key: 'composite' | 'pvc';
+  fraction: number;
+  label: string;
+  width_cm: number;
+  height_cm: number;
+  base_cost: number;
+  markup_multiplier: number;
+  sort_order: number;
+}
+
+export interface Font {
+  id: string;
+  key: string;
+  name: string;
+  category: 'thin' | 'bold' | 'script';
+  css_family: string;
+  sort_order: number;
+  active: boolean;
+}
+
+export interface LightSignagePricing {
+  backing: { figured_shape_multiplier: number };
+  led: { modules_price_per_m2: number; modules_fund_pct: number; tape_price_per_m2: number; tape_fund_pct: number };
+  psu: { ip54_price: number; ip67_price: number };
+  delivery: { taraz: number; shymkent: number; almaty: number; other_individual_estimate: number };
+  letters: {
+    price_per_cm_base: number;
+    fund_per_cm: number;
+    type_multipliers: Record<'full' | 'front' | 'side' | 'front_and_side' | 'back' | 'nonstandard', number>;
+    gold_silver_multiplier: number;
+    frame: { size_20x20_price_per_m: number; size_40x20_price_per_m: number; frame_fund_per_m: number };
+  };
+  lightbox: {
+    assembly_simple: number;
+    assembly_complex: number;
+    min_price_simple: number;
+    min_price_complex: number;
+    application: { uv_print: number; oracal_cut: number; acrylic_cut: number };
+  };
+}
+
 export interface ProductType {
   id: string;
   category_id: string | null;

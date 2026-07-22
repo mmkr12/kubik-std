@@ -98,7 +98,22 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
       );
     }
 
-    // Автоматический расход материалов — из базы знаний (норматив на
+    // Готовая разбивка по фонду материалов — из специализированных
+    // калькуляторов (буквы на подложке / световые буквы / лайтбокс),
+    // которые считают себестоимость по формуле, а не по нормативу.
+    if (draft.materialFundBreakdown && draft.materialFundBreakdown.length > 0) {
+      const { data: allMaterials } = await supabase.from('materials').select('*');
+      const byName = new Map((allMaterials ?? []).map((m: any) => [m.name, m.id]));
+      const rows = draft.materialFundBreakdown
+        .filter((b) => b.amount > 0 && byName.has(b.materialName))
+        .map((b) => ({
+          request_id: requestId,
+          material_id: byName.get(b.materialName),
+          quantity: 1,
+          unit_cost: Math.round(b.amount),
+        }));
+      if (rows.length > 0) await supabase.from('request_materials').insert(rows);
+    }
     // 1 м² или 1 шт для этого типа изделия), цена — из справочника.
     // Менеджер по-прежнему может поправить/добавить вручную ниже.
     const { data: normRows } = await supabase
