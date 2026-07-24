@@ -8,48 +8,34 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { formatTenge, formatDate } from '@/lib/utils';
-import { suggestInstallDate } from '@/lib/scheduler';
-import { ProductCalculator, type CalculatorDraft } from '@/components/product-calculator';
-import type { ERPRequest, OrderItem, ProductType, ProductCategory, Payment, RequestMaterial, Material, ProductTypeField, ProductTypeMaterial } from '@/lib/types';
-import type { ProductionSettingsRow } from '@/lib/erp-pricing';
+import { MainCalculator } from '@/components/main-calculator';
+import type { LightLettersDraft } from '@/components/calculators/light-letters-on-frame-calculator';
+import type { ERPRequest, OrderItem, Payment, RequestMaterial, Material } from '@/lib/types';
 
 // Общий «конструктор заказа» — используется и при первом создании заявки
 // («Замер не требуется»), и при редактировании уже существующего заказа.
-// Так эти два места не расходятся в поведении и не плодят второе окно.
 export function OrderWorkspace({ requestId, onChanged }: { requestId: string; onChanged: () => void }) {
   const [items, setItems] = useState<OrderItem[]>([]);
-  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
-  const [categories, setCategories] = useState<ProductCategory[]>([]);
-  const [settings, setSettings] = useState<ProductionSettingsRow | null>(null);
-  const [fields, setFields] = useState<ProductTypeField[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [materialsCatalog, setMaterialsCatalog] = useState<Material[]>([]);
   const [requestMaterials, setRequestMaterials] = useState<RequestMaterial[]>([]);
   const [request, setRequest] = useState<ERPRequest | null>(null);
-  const [showForm, setShowForm] = useState(false);
   const [installDate, setInstallDate] = useState('');
   const [suggesting, setSuggesting] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
   const supabase = createClient();
 
   async function loadAll() {
-    const [{ data: reqData }, { data: itemsData }, { data: typesData }, { data: catsData }, { data: settingsData }, { data: fieldsData }, { data: paymentsData }, { data: matCatalog }, { data: reqMats }] = await Promise.all([
+    const [{ data: reqData }, { data: itemsData }, { data: paymentsData }, { data: matCatalog }, { data: reqMats }] = await Promise.all([
       supabase.from('requests').select('*').eq('id', requestId).single(),
       supabase.from('order_items').select('*').eq('request_id', requestId).order('created_at'),
-      supabase.from('product_types').select('*').eq('active', true).order('sort_order'),
-      supabase.from('product_categories').select('*').eq('active', true).order('sort_order'),
-      supabase.from('production_settings').select('*').single(),
-      supabase.from('product_type_fields').select('*').order('sort_order'),
       supabase.from('payments').select('*').eq('request_id', requestId).order('paid_at', { ascending: false }),
       supabase.from('materials').select('*').eq('active', true).order('sort_order'),
       supabase.from('request_materials').select('*, material:materials(*)').eq('request_id', requestId),
     ]);
     setRequest(reqData as ERPRequest);
     setItems((itemsData as OrderItem[]) ?? []);
-    setProductTypes((typesData as ProductType[]) ?? []);
-    setCategories((catsData as ProductCategory[]) ?? []);
-    setSettings((settingsData as ProductionSettingsRow) ?? null);
-    setFields((fieldsData as ProductTypeField[]) ?? []);
     setPayments((paymentsData as Payment[]) ?? []);
     setMaterialsCatalog((matCatalog as Material[]) ?? []);
     setRequestMaterials((reqMats as RequestMaterial[]) ?? []);
@@ -61,80 +47,19 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestId]);
 
-  async function handleAddItem(draft: CalculatorDraft) {
+  async function handleAddItem(draft: LightLettersDraft) {
     await supabase.from('order_items').insert({
       request_id: requestId,
-      product_type_id: draft.productType.id,
-      params: draft.params,
-      manufacture_hours: draft.manufactureHours,
-      install_complexity: draft.installComplexity,
-      install_city: draft.installCity,
-      sunday_client_requested: draft.sundayClientRequested,
-      item_cost: draft.itemCost,
-      install_cost: draft.installCost,
-      final_cost: draft.finalCost,
-      adjustment_type: draft.finalCost === draft.itemCost + draft.installCost ? null : draft.finalCost > draft.itemCost + draft.installCost ? 'markup' : 'discount',
-      adjustment_amount: Math.abs(draft.finalCost - (draft.itemCost + draft.installCost)),
-      adjustment_comment: draft.adjustmentComment,
+      product_type_id: null,
+      params: draft.input,
+      manufacture_hours: null,
+      item_cost: draft.result.material + draft.result.production,
+      final_cost: draft.result.total,
+      install_cost: draft.result.installDelivery,
+      install_city: draft.input.installMode === 'install' ? draft.input.installCity : 'taraz',
+      install_complexity: draft.input.installMode === 'install' ? draft.input.complexity : null,
+      tech_spec: { type: 'light_letters_on_frame', ...draft.result },
     });
-    const { data: templates } = await supabase.from('operation_templates').select('*').eq('product_type_id', draft.productType.id).order('sort_order');
-    const { data: newItem } = await supabase.from('order_items').select('id').eq('request_id', requestId).order('created_at', { ascending: false }).limit(1).single();
-    if (templates && templates.length > 0 && newItem) {
-      await supabase.from('order_operations').insert(
-        templates.map((t: any) => ({
-          order_item_id: newItem.id,
-          operation_template_id: t.id,
-          key: t.key,
-          name: t.name,
-          role_id: t.role_id,
-          assigned_employee_id: t.default_employee_id,
-          cost: t.cost,
-          norm_hours: t.norm_hours,
-          required: t.required,
-          allows_parallel: t.allows_parallel,
-          depends_on_keys: t.depends_on_keys,
-          status: t.depends_on_keys?.length ? 'locked' : 'available',
-        }))
-      );
-    }
-
-    // Готовая разбивка по фонду материалов — из специализированных
-    // калькуляторов (буквы на подложке / световые буквы / лайтбокс),
-    // которые считают себестоимость по формуле, а не по нормативу.
-    if (draft.materialFundBreakdown && draft.materialFundBreakdown.length > 0) {
-      const { data: allMaterials } = await supabase.from('materials').select('*');
-      const byName = new Map((allMaterials ?? []).map((m: any) => [m.name, m.id]));
-      const rows = draft.materialFundBreakdown
-        .filter((b) => b.amount > 0 && byName.has(b.materialName))
-        .map((b) => ({
-          request_id: requestId,
-          material_id: byName.get(b.materialName),
-          quantity: 1,
-          unit_cost: Math.round(b.amount),
-        }));
-      if (rows.length > 0) await supabase.from('request_materials').insert(rows);
-    }
-    // 1 м² или 1 шт для этого типа изделия), цена — из справочника.
-    // Менеджер по-прежнему может поправить/добавить вручную ниже.
-    const { data: normRows } = await supabase
-      .from('product_type_materials')
-      .select('*, material:materials(*)')
-      .eq('product_type_id', draft.productType.id);
-
-    if (normRows && normRows.length > 0 && newItem) {
-      const multiplier = draft.productType.unit === 'm2'
-        ? Math.max(Number((draft.params as any).widthM) || 1, 0.1) * Math.max(Number((draft.params as any).heightM) || 1, 0.1)
-        : Math.max(Number((draft.params as any).count) || 1, 1);
-
-      await supabase.from('request_materials').insert(
-        (normRows as (ProductTypeMaterial & { material: Material })[]).map((n) => ({
-          request_id: requestId,
-          material_id: n.material_id,
-          quantity: Math.round(n.quantity_per_unit * multiplier * 100) / 100,
-          unit_cost: n.material?.default_price ?? 0,
-        }))
-      );
-    }
     setShowForm(false);
     loadAll();
     onChanged();
@@ -150,16 +75,13 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
     if (items.length === 0) return;
     setSuggesting(true);
     try {
-      const withTypes = items.map((it) => ({
-        productType: productTypes.find((p) => p.id === it.product_type_id)!,
-        manufactureHours: it.manufacture_hours ?? 0,
-      })).filter((i) => i.productType);
-      const date = await suggestInstallDate(withTypes);
-      if (date) {
-        setInstallDate(date);
-        await supabase.from('requests').update({ recommended_install_date: date, install_date: date }).eq('id', requestId);
-        loadAll();
-      }
+      const withTypes = items
+        .filter((it) => it.manufacture_hours)
+        .map((it) => ({ manufactureHours: it.manufacture_hours ?? 0 }));
+      if (withTypes.length === 0) return;
+      // Планировщик временно упрощён — калькулятор (и типы изделий,
+      // от которых зависел график цеха) убран, ждём новую структуру.
+      setSuggesting(false);
     } finally {
       setSuggesting(false);
     }
@@ -188,7 +110,7 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
     loadAll();
   }
 
-  if (!request || !settings) return <p className="text-sm text-muted-foreground">Загрузка…</p>;
+  if (!request) return <p className="text-sm text-muted-foreground">Загрузка…</p>;
 
   const totalCost = items.reduce((sum, i) => sum + (i.final_cost ?? i.item_cost + i.install_cost), 0);
   const materialsCost = requestMaterials.reduce((s, m) => s + m.total_cost, 0);
@@ -198,20 +120,13 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
       <div className="space-y-2">
         {items.length === 0 && <p className="text-sm text-muted-foreground">Пока нет ни одной позиции работ.</p>}
         {items.map((item) => (
-          <ItemRow
-            key={item.id}
-            item={item}
-            productType={productTypes.find((p) => p.id === item.product_type_id)}
-            fields={fields.filter((f) => f.product_type_id === item.product_type_id)}
-            onRemove={() => handleRemoveItem(item.id)}
-            onChanged={loadAll}
-          />
+          <ItemRow key={item.id} item={item} onRemove={() => handleRemoveItem(item.id)} onChanged={loadAll} />
         ))}
       </div>
 
       {showForm ? (
         <div className="mt-4">
-          <ProductCalculator mode="item" categories={categories} productTypes={productTypes} settings={settings} onAdd={handleAddItem} onCancel={() => setShowForm(false)} />
+          <MainCalculator mode="item" onAdd={handleAddItem} onCancel={() => setShowForm(false)} />
         </div>
       ) : (
         <Button variant="outline" className="mt-4 w-full" onClick={() => setShowForm(true)}>
@@ -240,16 +155,10 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
   );
 }
 
-function ItemRow({
-  item, productType, fields, onRemove, onChanged,
-}: {
-  item: OrderItem; productType?: ProductType; fields: ProductTypeField[]; onRemove: () => void; onChanged: () => void;
-}) {
+function ItemRow({ item, onRemove, onChanged }: { item: OrderItem; onRemove: () => void; onChanged: () => void }) {
   const [editingPrice, setEditingPrice] = useState(false);
-  const [editingSpec, setEditingSpec] = useState(false);
   const [finalCost, setFinalCost] = useState(item.final_cost ?? item.item_cost + item.install_cost);
   const [adjComment, setAdjComment] = useState(item.adjustment_comment ?? '');
-  const [spec, setSpec] = useState<Record<string, any>>(item.tech_spec ?? {});
   const supabase = createClient();
   const baseCost = item.item_cost + item.install_cost;
 
@@ -265,17 +174,11 @@ function ItemRow({
     onChanged();
   }
 
-  async function saveSpec() {
-    await supabase.from('order_items').update({ tech_spec: spec }).eq('id', item.id);
-    setEditingSpec(false);
-    onChanged();
-  }
-
   return (
     <div className="rounded-lg border border-border px-3 py-2.5 text-sm">
       <div className="flex items-center justify-between">
         <div>
-          <div className="font-medium text-navy-900">{productType?.name ?? 'Изделие'}</div>
+          <div className="font-medium text-navy-900">Позиция заказа</div>
           <div className="text-xs text-muted-foreground">~{item.manufacture_hours} ч изготовление</div>
         </div>
         <div className="flex items-center gap-2">
@@ -296,35 +199,6 @@ function ItemRow({
           <Input type="number" value={finalCost} onChange={(e) => setFinalCost(Number(e.target.value))} placeholder="Итоговая стоимость" />
           <Input value={adjComment} onChange={(e) => setAdjComment(e.target.value)} placeholder="Причина изменения (необязательно)" />
           <Button size="sm" onClick={savePrice}>Сохранить цену</Button>
-        </div>
-      )}
-
-      {fields.length > 0 && (
-        <button onClick={() => setEditingSpec(!editingSpec)} className="mt-2 text-xs text-blue-600 hover:underline">
-          {editingSpec ? 'Скрыть тех.карточку' : 'Тех.карточка изделия'}
-        </button>
-      )}
-      {editingSpec && (
-        <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg bg-mist-50 p-3">
-          {fields.map((f) => (
-            <div key={f.key} className="space-y-1">
-              <Label className="text-xs">{f.label}</Label>
-              {f.field_type === 'boolean' ? (
-                <select value={spec[f.key] ? 'yes' : 'no'} onChange={(e) => setSpec({ ...spec, [f.key]: e.target.value === 'yes' })} className="h-9 w-full rounded-lg border border-border bg-white px-2 text-xs">
-                  <option value="no">Нет</option>
-                  <option value="yes">Да</option>
-                </select>
-              ) : f.field_type === 'select' ? (
-                <select value={spec[f.key] ?? ''} onChange={(e) => setSpec({ ...spec, [f.key]: e.target.value })} className="h-9 w-full rounded-lg border border-border bg-white px-2 text-xs">
-                  <option value="">—</option>
-                  {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              ) : (
-                <Input className="h-9 text-xs" type={f.field_type === 'number' ? 'number' : 'text'} value={spec[f.key] ?? ''} onChange={(e) => setSpec({ ...spec, [f.key]: e.target.value })} />
-              )}
-            </div>
-          ))}
-          <Button size="sm" className="col-span-2" onClick={saveSpec}>Сохранить тех.карточку</Button>
         </div>
       )}
     </div>
@@ -397,7 +271,6 @@ function MaterialsSection({
         <h3 className="font-semibold text-navy-900">Материалы (для себестоимости)</h3>
       </div>
       <p className="text-sm text-muted-foreground">Итого потрачено на материалы: {formatTenge(totalCost)}</p>
-      <p className="text-xs text-muted-foreground">Считается автоматически из базы материалов при добавлении работы. Можно поправить вручную или добавить недостающее.</p>
       {items.map((m) => (
         <div key={m.id} className="flex items-center justify-between text-xs">
           <span className="text-navy-800">{m.material?.name} × {m.quantity} {m.material?.unit}</span>

@@ -2,9 +2,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { SiteHeader } from '@/components/site-header';
 import { Logo } from '@/components/logo';
-import { Calculator } from '@/components/calculator';
 import { HeroCarousel } from '@/components/hero-carousel';
-import { TypesGallery } from '@/components/types-gallery';
+import { Calculator } from '@/components/calculator';
 import { MeasurementRequestDialog } from '@/components/measurement-request-dialog';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/server';
@@ -13,7 +12,7 @@ import { Instagram, Factory, Printer, MousePointerClick, Truck, Zap, Phone, Send
 const ABOUT_ITEMS = [
   { icon: Factory, title: 'Собственное производство', text: 'Полный цикл изготовления вывесок — от эскиза до монтажа' },
   { icon: Printer, title: 'Более 10 принтеров для световых вывесок', text: 'Собственный парк оборудования — производство без задержек и очередей у сторонних подрядчиков' },
-  { icon: MousePointerClick, title: 'Оформление заказа онлайн без менеджера', text: 'Рассчитайте стоимость и оформите заявку прямо на сайте', href: '#calculator' },
+  { icon: MousePointerClick, title: 'Оформление заказа онлайн без менеджера', text: 'Оставьте заявку на замер прямо на сайте', href: '#contacts' },
   { icon: Truck, title: 'Отправка по СНГ, монтаж в трёх областях', text: 'Работаем по всему Казахстану и СНГ, монтаж — Тараз, Шымкент, Алматы' },
   { icon: Zap, title: 'Срочное изготовление за доплату', text: 'Если нужна скорость — сделаем вне очереди и без сдвига графика остальных заказов' },
 ];
@@ -53,7 +52,6 @@ interface WorkPreview {
   id: string;
   name: string;
   finished_photo_url: string | null;
-  type_name: string | null;
 }
 
 async function getRecentWorks(): Promise<WorkPreview[]> {
@@ -61,17 +59,12 @@ async function getRecentWorks(): Promise<WorkPreview[]> {
     const supabase = createClient();
     const { data } = await supabase
       .from('requests')
-      .select('id, name, finished_photo_url, order_items(product_type:product_types(name))')
+      .select('id, name, finished_photo_url')
       .eq('status', 'done')
       .not('finished_photo_url', 'is', null)
       .order('finished_at', { ascending: false })
       .limit(4);
-    return ((data as any[]) ?? []).map((r) => ({
-      id: r.id,
-      name: r.name,
-      finished_photo_url: r.finished_photo_url,
-      type_name: r.order_items?.[0]?.product_type?.name ?? null,
-    }));
+    return (data as WorkPreview[]) ?? [];
   } catch {
     return [];
   }
@@ -170,21 +163,11 @@ export default async function HomePage() {
                 </div>
                 <div className="p-4">
                   <h3 className="text-sm font-semibold text-white">{w.name}</h3>
-                  {w.type_name && <p className="text-xs text-white/50">{w.type_name}</p>}
                 </div>
               </Link>
             ))}
           </div>
         )}
-      </section>
-
-      {/* TYPES */}
-      <section className="container-kubik py-16">
-        <h2 className="text-2xl font-bold text-navy-900 md:text-3xl">Типы вывесок</h2>
-        <p className="mt-2 text-muted-foreground">Нажмите на карточку, чтобы увидеть примеры наших работ</p>
-        <div className="mt-8">
-          <TypesGallery />
-        </div>
       </section>
 
       {/* CONTACTS */}

@@ -25,12 +25,7 @@ export function CharCounterInput({
         <span className="text-xs text-muted-foreground">{value.length}/{maxLength}</span>
       </div>
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      <Input
-        value={value}
-        maxLength={maxLength}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <Input value={value} maxLength={maxLength} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

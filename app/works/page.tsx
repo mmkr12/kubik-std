@@ -11,7 +11,7 @@ async function getAllWorks(): Promise<WorkItem[]> {
     const supabase = createClient();
     const { data } = await supabase
       .from('requests')
-      .select('id, name, finished_photo_url, finished_at, order_items(product_type:product_types(key,name))')
+      .select('id, name, finished_photo_url, finished_at')
       .eq('status', 'done')
       .not('finished_photo_url', 'is', null)
       .order('finished_at', { ascending: false });
@@ -20,8 +20,8 @@ async function getAllWorks(): Promise<WorkItem[]> {
       id: r.id,
       name: r.name,
       photoUrl: r.finished_photo_url,
-      typeKey: r.order_items?.[0]?.product_type?.key ?? null,
-      typeName: r.order_items?.[0]?.product_type?.name ?? null,
+      typeKey: null,
+      typeName: null,
     }));
   } catch {
     return [];

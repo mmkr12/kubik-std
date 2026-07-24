@@ -20,11 +20,7 @@ export function AccordionSection({
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-white">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
-      >
+      <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between px-4 py-3 text-left">
         <span className="flex items-center gap-2 text-sm font-semibold text-navy-900">
           <Icon className="h-4 w-4 text-blue-600" /> {title}
         </span>

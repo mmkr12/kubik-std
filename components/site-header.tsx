@@ -3,9 +3,9 @@ import { Logo } from '@/components/logo';
 import { Phone, Instagram } from 'lucide-react';
 
 const links = [
+  { href: '#calculator', label: 'Калькулятор' },
   { href: '#about', label: 'О нас' },
   { href: '#works', label: 'Работы' },
-  { href: '#calculator', label: 'Калькулятор' },
   { href: '/production', label: 'Производство онлайн' },
   { href: '#contacts', label: 'Контакты' },
 ];
