@@ -189,7 +189,7 @@ export function LightLettersOnFrameCalculator({
           Золото / серебро (лицевое свечение станет недоступно)
         </label>
         <div className="flex items-center gap-2 rounded-lg bg-mist-50 p-2">
-          <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-mist-100">
+          <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-mist-100">
             <Image src={TYPE_THUMBS[letterType]} alt="" fill className="object-cover" />
           </span>
           <p className="text-xs text-muted-foreground">Пример выбранного типа свечения</p>

@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Logo } from '@/components/logo';
-import { LightLettersPreview } from '@/components/calculators/light-letters-preview';
+import { TYPE_THUMBS } from '@/components/calculators/light-letters-preview';
 import { PrepaySection } from '@/components/kp/prepay-section';
 import { calculate, LETTER_TYPE_LABELS, type CalculatorInput } from '@/lib/light-letters-pricing';
 import { formatTenge, formatDate } from '@/lib/utils';
@@ -67,32 +67,29 @@ export default function KPPage({ searchParams }: { searchParams: { d?: string } 
       </header>
 
       <div className="container-kubik -mt-8 max-w-4xl space-y-8 pb-20">
-        {/* ВИЗУАЛИЗАЦИЯ */}
-        <div className="overflow-hidden rounded-2xl card-shadow">
-          <LightLettersPreview
-            mainText={input.mainText}
-            additionalText={input.additionalText}
-            letterType={input.letterType}
-            goldSilver={input.goldSilver}
-            hasFrame={input.frameType !== 'none'}
-          />
-        </div>
-
-        {/* ДОВЕРИЕ */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {[
-            { icon: BadgeCheck, title: 'Прозрачные цены', text: 'Без скрытых платежей' },
-            { icon: Factory, title: 'Собственное производство', text: 'Полный контроль качества' },
-            { icon: ShieldCheck, title: 'Гарантия 24 месяца', text: 'На все виды работ' },
-          ].map((b) => (
-            <div key={b.title} className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3">
-              <b.icon className="h-5 w-5 shrink-0 text-blue-600" />
-              <div>
-                <p className="text-sm font-semibold text-navy-900">{b.title}</p>
-                <p className="text-xs text-muted-foreground">{b.text}</p>
-              </div>
+        {/* ТИП СВЕЧЕНИЯ + ДОВЕРИЕ */}
+        <div className="grid grid-cols-1 gap-4 overflow-hidden rounded-2xl card-shadow sm:grid-cols-2">
+          <div className="relative aspect-square sm:aspect-auto sm:min-h-[280px]">
+            <Image src={TYPE_THUMBS[input.letterType]} alt={LETTER_TYPE_LABELS[input.letterType]} fill className="object-cover" />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-navy-950/80 to-transparent p-4">
+              <p className="text-sm font-semibold text-white">{LETTER_TYPE_LABELS[input.letterType]}</p>
             </div>
-          ))}
+          </div>
+          <div className="flex flex-col justify-center gap-3 bg-white p-6">
+            {[
+              { icon: BadgeCheck, title: 'Прозрачные цены', text: 'Без скрытых платежей' },
+              { icon: Factory, title: 'Собственное производство', text: 'Полный контроль качества' },
+              { icon: ShieldCheck, title: 'Гарантия 24 месяца', text: 'На все виды работ' },
+            ].map((b) => (
+              <div key={b.title} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                <b.icon className="h-5 w-5 shrink-0 text-blue-600" />
+                <div>
+                  <p className="text-sm font-semibold text-navy-900">{b.title}</p>
+                  <p className="text-xs text-muted-foreground">{b.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* ПАРАМЕТРЫ */}

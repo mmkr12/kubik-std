@@ -41,13 +41,13 @@ export function LightLettersPreview({
       </div>
 
       {!hasInput ? (
-        <div className="relative aspect-[4/3] w-full">
+        <div className="relative aspect-[2/1] w-full">
           <Image src={night ? '/calc/primer/noch.png' : '/calc/primer/den.png'} alt="Пример вывески" fill className="object-cover" />
         </div>
       ) : (
-        <div className={cn('relative flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 px-6', night ? 'bg-navy-950' : 'bg-mist-100')}>
-          {hasFrame && <div className={cn('absolute left-6 right-6 top-1/2 h-1 -translate-y-10 rounded', night ? 'bg-navy-700' : 'bg-navy-300')} />}
-          {hasFrame && <div className={cn('absolute left-6 right-6 top-1/2 h-1 translate-y-10 rounded', night ? 'bg-navy-700' : 'bg-navy-300')} />}
+        <div className={cn('relative flex aspect-[2/1] w-full flex-col items-center justify-center gap-2 px-6', night ? 'bg-navy-950' : 'bg-mist-100')}>
+          {hasFrame && <div className={cn('absolute left-6 right-6 top-1/2 h-1 -translate-y-8 rounded', night ? 'bg-navy-700' : 'bg-navy-300')} />}
+          {hasFrame && <div className={cn('absolute left-6 right-6 top-1/2 h-1 translate-y-8 rounded', night ? 'bg-navy-700' : 'bg-navy-300')} />}
           <span
             className={cn(
               'text-center text-3xl font-extrabold tracking-wide',
@@ -63,8 +63,8 @@ export function LightLettersPreview({
         </div>
       )}
 
-      <div className="flex items-center gap-2 border-t border-border px-4 py-3">
-        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-mist-100">
+      <div className="flex items-center gap-3 border-t border-border px-4 py-3">
+        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-mist-100">
           <Image src={TYPE_THUMBS[letterType]} alt="Тип свечения" fill className="object-cover" />
         </div>
         <p className="text-xs text-muted-foreground">Пример выбранного типа свечения</p>

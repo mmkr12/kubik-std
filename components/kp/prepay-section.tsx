@@ -2,12 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { formatTenge } from '@/lib/utils';
 
 export function PrepaySection({ total }: { total: number }) {
-  const [amount, setAmount] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(20 * 60);
 
   useEffect(() => {
@@ -36,20 +32,6 @@ export function PrepaySection({ total }: { total: number }) {
             Время бонуса истекло — предоплату всё ещё можно внести
           </div>
         )}
-
-        <div className="mt-6 grid w-full max-w-sm gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-          <div className="space-y-1.5 text-left">
-            <Label>Сумма предоплаты, ₸</Label>
-            <Input
-              type="number"
-              min={10000}
-              max={total}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder={`от 10 000 до ${total.toLocaleString('ru-RU')}`}
-            />
-          </div>
-        </div>
 
         <div className="mt-6 flex flex-col items-center gap-2 rounded-2xl bg-white p-4 shadow-sm">
           <Image src="/brand/kaspi-qr.png" alt="Kaspi QR" width={180} height={180} />
