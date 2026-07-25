@@ -78,16 +78,16 @@ export function MainCalculator({
                   key={t.key}
                   onClick={() => setTypeKey(t.key)}
                   className={cn(
-                    'flex min-w-0 items-center gap-2 rounded-xl border-2 bg-white text-left transition-colors',
+                    'flex h-11 min-w-0 items-center gap-1.5 rounded-xl border-2 bg-white text-left transition-colors md:h-auto',
                     active
-                      ? 'flex-1 basis-[130px] px-3 py-2.5 border-blue-500 md:basis-[160px]'
-                      : 'h-11 w-11 justify-center p-0 border-mist-200 hover:border-mist-300 md:h-auto md:w-auto md:flex-1 md:basis-[160px] md:justify-start md:px-3 md:py-2.5'
+                      ? 'flex-1 basis-[130px] px-2 border-blue-500 md:basis-[160px] md:gap-2 md:px-3 md:py-2.5'
+                      : 'w-11 justify-center p-0 border-mist-200 hover:border-mist-300 md:w-auto md:flex-1 md:basis-[160px] md:justify-start md:gap-2 md:px-3 md:py-2.5'
                   )}
                 >
-                  <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-mist-100">
+                  <span className={cn('relative shrink-0 overflow-hidden rounded-lg bg-mist-100', active ? 'h-8 w-8 md:h-9 md:w-9' : 'h-9 w-9')}>
                     <Image src={t.icon} alt="" fill className="object-cover" />
                   </span>
-                  <span className={cn('whitespace-pre-line text-xs font-semibold leading-tight', active ? 'block text-blue-600' : 'hidden md:block text-navy-700')}>
+                  <span className={cn('whitespace-pre-line text-[10px] font-semibold leading-[1.15] md:text-xs md:leading-tight', active ? 'block text-blue-600' : 'hidden md:block text-navy-700')}>
                     {t.name}
                   </span>
                 </button>
