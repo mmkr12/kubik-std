@@ -2,7 +2,7 @@ import { MainCalculator } from '@/components/main-calculator';
 
 export function Calculator() {
   return (
-    <div id="calculator" className="rounded-2xl border border-border bg-white p-4 card-shadow sm:p-6 md:p-8">
+    <div id="calculator" className="bg-white md:rounded-2xl md:border md:border-border md:p-6 md:card-shadow md:p-8">
       <MainCalculator mode="public" />
     </div>
   );

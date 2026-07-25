@@ -77,8 +77,10 @@ export default async function HomePage() {
     <main className="bg-mist-gradient">
       <SiteHeader />
 
-      {/* CALCULATOR — наш основной продукт, сразу вверху страницы */}
-      <section className="container-kubik py-10 md:py-14">
+      {/* CALCULATOR — наш основной продукт, сразу вверху страницы.
+          На мобильном — без боковых отступов (максимум места на экране),
+          на десктопе — как обычно, через container-kubik. */}
+      <section className="mx-auto w-full max-w-[1200px] py-6 md:px-10 md:py-14">
         <Calculator />
       </section>
 

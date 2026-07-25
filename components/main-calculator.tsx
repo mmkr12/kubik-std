@@ -36,9 +36,9 @@ export function MainCalculator({
   const type = TYPES.find((t) => t.key === typeKey)!;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-3 md:px-0">
       {mode === 'public' && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="hidden flex-col gap-3 sm:flex-row sm:items-start sm:justify-between md:flex">
           <div>
             <h2 className="text-2xl font-bold text-navy-900">Рассчитайте стоимость вывески</h2>
             <p className="text-sm text-muted-foreground">Получите расчёт и коммерческое предложение за 1 минуту</p>
@@ -47,7 +47,9 @@ export function MainCalculator({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
+      {/* Категории — на мобильном скрыты полностью, всегда открыты
+          сразу на "Световые вывески" (единственная готовая категория). */}
+      <div className="hidden flex-wrap gap-2 md:flex">
         {CATEGORIES.map((c) => (
           <button
             key={c.key}
@@ -68,24 +70,29 @@ export function MainCalculator({
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap gap-2 sm:gap-3">
-            {TYPES.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTypeKey(t.key)}
-                className={cn(
-                  'flex min-w-0 flex-1 basis-[120px] items-center gap-2 rounded-xl border-2 bg-white px-3 py-2.5 text-left transition-colors sm:basis-[160px]',
-                  typeKey === t.key ? 'border-blue-500' : 'border-mist-200 hover:border-mist-300'
-                )}
-              >
-                <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-mist-100">
-                  <Image src={t.icon} alt="" fill className="object-cover" />
-                </span>
-                <span className={cn('hidden whitespace-pre-line text-xs font-semibold leading-tight sm:block', typeKey === t.key ? 'text-blue-600' : 'text-navy-700')}>
-                  {t.name}
-                </span>
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-1.5 pt-2 md:gap-3 md:pt-0">
+            {TYPES.map((t) => {
+              const active = typeKey === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTypeKey(t.key)}
+                  className={cn(
+                    'flex min-w-0 items-center gap-2 rounded-xl border-2 bg-white text-left transition-colors',
+                    active
+                      ? 'flex-1 basis-[130px] px-3 py-2.5 border-blue-500 md:basis-[160px]'
+                      : 'h-11 w-11 justify-center p-0 border-mist-200 hover:border-mist-300 md:h-auto md:w-auto md:flex-1 md:basis-[160px] md:justify-start md:px-3 md:py-2.5'
+                  )}
+                >
+                  <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-mist-100">
+                    <Image src={t.icon} alt="" fill className="object-cover" />
+                  </span>
+                  <span className={cn('whitespace-pre-line text-xs font-semibold leading-tight', active ? 'block text-blue-600' : 'hidden md:block text-navy-700')}>
+                    {t.name}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {!type.ready ? (

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { LetterType } from '@/lib/light-letters-pricing';
 
-const TYPE_THUMBS: Record<LetterType, string> = {
+export const TYPE_THUMBS: Record<LetterType, string> = {
   full_combo: '/calc/tip/polnoe_combo.png',
   full_single: '/calc/tip/polnoe.png',
   front: '/calc/tip/licevoe.png',
