@@ -52,9 +52,42 @@ export function LightLettersOnFrameCalculator({
   const [complexity, setComplexity] = useState<Complexity>('medium');
   const [deliveryOption, setDeliveryOption] = useState<DeliveryOption>('pickup');
   const [urgent, setUrgent] = useState(false);
-  const [showPrepay, setShowPrepay] = useState(false);
+  const [dialogStep, setDialogStep] = useState<'closed' | 'kp' | 'prepay'>('closed');
   const [depositAmount, setDepositAmount] = useState('');
   const [saved, setSaved] = useState(false);
+  const [hasSavedDraft, setHasSavedDraft] = useState(false);
+
+  // При открытии — проверяем, есть ли ранее сохранённый расчёт в куках.
+  useEffect(() => {
+    const match = document.cookie.match(/kubik_calc_letters=([^;]+)/);
+    if (match) setHasSavedDraft(true);
+  }, []);
+
+  function handleRestore() {
+    const match = document.cookie.match(/kubik_calc_letters=([^;]+)/);
+    if (!match) return;
+    try {
+      const saved = JSON.parse(decodeURIComponent(match[1])) as CalculatorInput;
+      setMainText(saved.mainText);
+      setMainHeightMm(saved.mainHeightMm);
+      setDepthMm(saved.depthMm);
+      setAdditionalText(saved.additionalText);
+      setAdditionalHeightMm(saved.additionalHeightMm);
+      setLetterType(saved.letterType);
+      setGoldSilver(saved.goldSilver);
+      setLedType(saved.ledType);
+      setPsuType(saved.psuType);
+      setFrameType(saved.frameType);
+      setInstallMode(saved.installMode);
+      setInstallCity(saved.installCity);
+      setComplexity(saved.complexity);
+      setDeliveryOption(saved.deliveryOption);
+      setUrgent(saved.urgent);
+      setHasSavedDraft(false);
+    } catch {
+      // повреждённые куки — просто игнорируем
+    }
+  }
 
   // "Без каркаса" — лёгкий монтаж недоступен.
   useEffect(() => {
@@ -98,6 +131,7 @@ export function LightLettersOnFrameCalculator({
   function handleSave() {
     document.cookie = `kubik_calc_letters=${encodeURIComponent(JSON.stringify(input))}; max-age=2592000; path=/`;
     setSaved(true);
+    setHasSavedDraft(false);
     setTimeout(() => setSaved(false), 2000);
   }
 
@@ -123,6 +157,12 @@ export function LightLettersOnFrameCalculator({
         превью типа свечения поднято под выбор типа, габариты в одну
         строку, смета без разбивки по статьям материала. */}
     <div className="block space-y-5 pb-24 md:hidden">
+      {hasSavedDraft && (
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          <span>У вас есть сохранённый расчёт</span>
+          <button onClick={handleRestore} className="font-semibold underline">Восстановить</button>
+        </div>
+      )}
       <MobileSection icon={Ruler} title="Основные параметры">
         <CharCounterInput label="Текст на вывеске" value={mainText} onChange={setMainText} maxLength={20} placeholder="Введите название вашей вывески" />
         <div className="grid grid-cols-2 gap-3">
@@ -271,7 +311,7 @@ export function LightLettersOnFrameCalculator({
             <Button size="sm" onClick={handleAdd}>Добавить</Button>
           </div>
         ) : (
-          <Button onClick={() => setShowPrepay(true)}>Внести предоплату</Button>
+          <Button onClick={() => setDialogStep('kp')}>Коммерческое предложение</Button>
         )}
       </div>
     </div>
@@ -281,6 +321,12 @@ export function LightLettersOnFrameCalculator({
     <CalculatorShell
       left={
         <>
+          {hasSavedDraft && (
+            <div className="flex items-center justify-between gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
+              <span>У вас есть сохранённый расчёт</span>
+              <button onClick={handleRestore} className="font-semibold underline">Восстановить</button>
+            </div>
+          )}
           <AccordionSection icon={Ruler} title="Основные параметры" defaultOpen>
             <CharCounterInput label="Текст на вывеске" value={mainText} onChange={setMainText} maxLength={20} placeholder="Введите название вашей вывески" />
             <div className="grid grid-cols-2 gap-3">
@@ -439,30 +485,57 @@ export function LightLettersOnFrameCalculator({
             {mode === 'item' ? (
               <Button onClick={handleAdd}>Добавить в заявку</Button>
             ) : (
-              <Button onClick={() => setShowPrepay(true)}>Внести предоплату</Button>
+              <Button onClick={() => setDialogStep('kp')}>Коммерческое предложение</Button>
             )}
           </div>
         </div>
       }
     />
     </div>
-      <Dialog open={showPrepay} onOpenChange={setShowPrepay}>
+      <Dialog open={dialogStep !== 'closed'} onOpenChange={(open) => setDialogStep(open ? 'kp' : 'closed')}>
         <DialogContent>
-          <DialogTitle>Внести предоплату</DialogTitle>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ориентировочная дата готовности: {formatDate(estimatedDate.toISOString())}
-          </p>
-          <div className="mt-4 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
-            Внесите предоплату от 10 000 ₸ до полной стоимости в течение 20 минут — и получите бонус/скидку.
-          </div>
-          <div className="mt-4 space-y-2">
-            <Label>Сумма предоплаты, ₸</Label>
-            <Input type="number" min={10000} max={result.total} value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder={`от 10 000 до ${result.total}`} />
-          </div>
-          <div className="mt-4 flex justify-center">
-            <Image src="/brand/kaspi-qr.png" alt="Kaspi QR" width={160} height={160} />
-          </div>
-          <p className="mt-2 text-center text-xs text-muted-foreground">Kaspi Pay · +7 707 775 00 11</p>
+          {dialogStep === 'kp' && (
+            <>
+              <DialogTitle>Коммерческое предложение</DialogTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {mainText || 'Ваша вывеска'}{additionalText ? ` · ${additionalText}` : ''}
+              </p>
+              <div className="mt-4 space-y-1 rounded-lg bg-mist-50 p-3 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Габариты</span><span>{result.gabarits.heightMm}×{result.gabarits.widthMm}×{result.gabarits.depthMm} мм</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Материал</span><span>{formatTenge(result.material)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Изготовление</span><span>{formatTenge(result.production)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">{installMode === 'delivery' ? 'Доставка' : 'Монтаж/Доставка'}</span><span>{formatTenge(result.installDelivery)}</span></div>
+                <div className="flex justify-between border-t border-border pt-1 font-semibold text-navy-900"><span>Итого</span><span>{formatTenge(result.total)}</span></div>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Ориентировочная дата готовности: {formatDate(estimatedDate.toISOString())} · предложение действительно 12 часов.
+              </p>
+              <Button className="mt-4 w-full" onClick={() => setDialogStep('prepay')}>Внести предоплату</Button>
+            </>
+          )}
+
+          {dialogStep === 'prepay' && (
+            <>
+              <DialogTitle>Внести предоплату</DialogTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Ориентировочная дата готовности: {formatDate(estimatedDate.toISOString())}
+              </p>
+              <div className="mt-4 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                Внесите предоплату от 10 000 ₸ до полной стоимости в течение 20 минут — и получите бонус/скидку.
+              </div>
+              <div className="mt-4 space-y-2">
+                <Label>Сумма предоплаты, ₸</Label>
+                <Input type="number" min={10000} max={result.total} value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder={`от 10 000 до ${result.total}`} />
+              </div>
+              <div className="mt-4 flex justify-center">
+                <Image src="/brand/kaspi-qr.png" alt="Kaspi QR" width={160} height={160} />
+              </div>
+              <p className="mt-2 text-center text-xs text-muted-foreground">Kaspi Pay · +7 707 775 00 11</p>
+              <button onClick={() => setDialogStep('kp')} className="mt-3 block text-center text-xs text-muted-foreground underline">
+                ← Назад к коммерческому предложению
+              </button>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </>
