@@ -5,10 +5,8 @@ import { Ruler, Palette, Lightbulb, Wrench, Truck, Bookmark } from 'lucide-react
 import type { LucideIcon } from 'lucide-react';
 import Image from 'next/image';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { formatTenge, formatDate } from '@/lib/utils';
+import { formatTenge } from '@/lib/utils';
 import {
   calculate, isTypeAvailable, getDiapason, LETTER_TYPE_LABELS,
   type CalculatorInput, type LetterType, type LedType, type PsuType, type FrameType,
@@ -52,8 +50,6 @@ export function LightLettersOnFrameCalculator({
   const [complexity, setComplexity] = useState<Complexity>('medium');
   const [deliveryOption, setDeliveryOption] = useState<DeliveryOption>('pickup');
   const [urgent, setUrgent] = useState(false);
-  const [dialogStep, setDialogStep] = useState<'closed' | 'kp' | 'prepay'>('closed');
-  const [depositAmount, setDepositAmount] = useState('');
   const [saved, setSaved] = useState(false);
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
 
@@ -139,8 +135,7 @@ export function LightLettersOnFrameCalculator({
     onAdd?.({ input, result });
   }
 
-  const estimatedDate = new Date();
-  estimatedDate.setDate(estimatedDate.getDate() + 10);
+  const kpUrl = `/kp?d=${encodeURIComponent(JSON.stringify(input))}`;
 
   const mobilePriceLines: PriceLine[] = [
     { label: 'Материал', amount: result.material },
@@ -311,7 +306,7 @@ export function LightLettersOnFrameCalculator({
             <Button size="sm" onClick={handleAdd}>Добавить</Button>
           </div>
         ) : (
-          <Button onClick={() => setDialogStep('kp')}>Коммерческое предложение</Button>
+          <a href={kpUrl} target="_blank" className="rounded-full bg-blue-gradient px-5 py-2.5 text-sm font-medium text-white">Коммерческое предложение</a>
         )}
       </div>
     </div>
@@ -485,59 +480,15 @@ export function LightLettersOnFrameCalculator({
             {mode === 'item' ? (
               <Button onClick={handleAdd}>Добавить в заявку</Button>
             ) : (
-              <Button onClick={() => setDialogStep('kp')}>Коммерческое предложение</Button>
+              <Button asChild>
+                <a href={kpUrl} target="_blank">Коммерческое предложение</a>
+              </Button>
             )}
           </div>
         </div>
       }
     />
     </div>
-      <Dialog open={dialogStep !== 'closed'} onOpenChange={(open) => setDialogStep(open ? 'kp' : 'closed')}>
-        <DialogContent>
-          {dialogStep === 'kp' && (
-            <>
-              <DialogTitle>Коммерческое предложение</DialogTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {mainText || 'Ваша вывеска'}{additionalText ? ` · ${additionalText}` : ''}
-              </p>
-              <div className="mt-4 space-y-1 rounded-lg bg-mist-50 p-3 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Габариты</span><span>{result.gabarits.heightMm}×{result.gabarits.widthMm}×{result.gabarits.depthMm} мм</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Материал</span><span>{formatTenge(result.material)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Изготовление</span><span>{formatTenge(result.production)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">{installMode === 'delivery' ? 'Доставка' : 'Монтаж/Доставка'}</span><span>{formatTenge(result.installDelivery)}</span></div>
-                <div className="flex justify-between border-t border-border pt-1 font-semibold text-navy-900"><span>Итого</span><span>{formatTenge(result.total)}</span></div>
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Ориентировочная дата готовности: {formatDate(estimatedDate.toISOString())} · предложение действительно 12 часов.
-              </p>
-              <Button className="mt-4 w-full" onClick={() => setDialogStep('prepay')}>Внести предоплату</Button>
-            </>
-          )}
-
-          {dialogStep === 'prepay' && (
-            <>
-              <DialogTitle>Внести предоплату</DialogTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Ориентировочная дата готовности: {formatDate(estimatedDate.toISOString())}
-              </p>
-              <div className="mt-4 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
-                Внесите предоплату от 10 000 ₸ до полной стоимости в течение 20 минут — и получите бонус/скидку.
-              </div>
-              <div className="mt-4 space-y-2">
-                <Label>Сумма предоплаты, ₸</Label>
-                <Input type="number" min={10000} max={result.total} value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder={`от 10 000 до ${result.total}`} />
-              </div>
-              <div className="mt-4 flex justify-center">
-                <Image src="/brand/kaspi-qr.png" alt="Kaspi QR" width={160} height={160} />
-              </div>
-              <p className="mt-2 text-center text-xs text-muted-foreground">Kaspi Pay · +7 707 775 00 11</p>
-              <button onClick={() => setDialogStep('kp')} className="mt-3 block text-center text-xs text-muted-foreground underline">
-                ← Назад к коммерческому предложению
-              </button>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
