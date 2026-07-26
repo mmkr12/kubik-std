@@ -41,9 +41,9 @@ export function LightLettersOnFrameCalculator({
   const [additionalHeightMm, setAdditionalHeightMm] = useState(100);
   const [letterType, setLetterType] = useState<LetterType>('full_single');
   const [goldSilver, setGoldSilver] = useState(false);
-  const [ledType, setLedType] = useState<LedType>('modules');
+  const [ledType, setLedType] = useState<LedType>('none');
   const [ledTemp, setLedTemp] = useState<LedTemp>('neutral');
-  const [psuType, setPsuType] = useState<PsuType>('ip43');
+  const [psuType, setPsuType] = useState<PsuType>('none');
   const [frameType, setFrameType] = useState<FrameType>('none');
   const [installMode, setInstallMode] = useState<'install' | 'delivery' | 'none'>('none');
   const [installCity, setInstallCity] = useState<InstallCity>('taraz');
@@ -172,7 +172,7 @@ export function LightLettersOnFrameCalculator({
       <Section icon={Palette} title="Внешний вид">
         <div className="space-y-1.5">
           <Label>Тип свечения</Label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1.5 md:grid-cols-6 md:gap-2">
             {LETTER_TYPES.map((t) => {
               const available = isTypeAvailable(t, diapasons as any);
               const active = letterType === t;
@@ -182,11 +182,11 @@ export function LightLettersOnFrameCalculator({
                   type="button"
                   disabled={!available}
                   onClick={() => setLetterType(t)}
-                  className={`flex flex-col items-center gap-1 rounded-xl border-2 p-2 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                  className={`flex flex-col items-center gap-1 rounded-xl border-2 p-1.5 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                     active ? 'border-blue-500 bg-blue-50' : 'border-mist-200 hover:border-mist-300'
                   }`}
                 >
-                  <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-mist-100">
+                  <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-mist-100 md:h-16 md:w-16">
                     <Image src={TYPE_THUMBS[t]} alt={LETTER_TYPE_LABELS[t]} fill className="object-cover" />
                   </span>
                   <span className={`text-[10px] font-medium leading-tight ${active ? 'text-blue-700' : 'text-navy-700'}`}>
@@ -215,6 +215,7 @@ export function LightLettersOnFrameCalculator({
           <div className="space-y-1">
             <Label>Тип освещения</Label>
             <select value={ledType} onChange={(e) => setLedType(e.target.value as LedType)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
+              <option value="none">Без освещения</option>
               <option value="modules">Модули</option>
               <option value="tape">Лента</option>
             </select>
@@ -222,14 +223,19 @@ export function LightLettersOnFrameCalculator({
           <div className="space-y-1">
             <Label>Блок питания</Label>
             <select value={psuType} onChange={(e) => setPsuType(e.target.value as PsuType)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
+              <option value="none">Без блока питания</option>
               <option value="ip43">Открытый IP43</option>
               <option value="ip67">Закрытый IP67</option>
-              <option value="none">Без блока питания</option>
             </select>
           </div>
           <div className="space-y-1">
             <Label>Температура</Label>
-            <select value={ledTemp} onChange={(e) => setLedTemp(e.target.value as LedTemp)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
+            <select
+              value={ledTemp}
+              onChange={(e) => setLedTemp(e.target.value as LedTemp)}
+              disabled={ledType === 'none'}
+              className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
               <option value="cold">Холодный</option>
               <option value="neutral">Нейтральный</option>
               <option value="warm">Тёплый</option>
@@ -303,7 +309,7 @@ export function LightLettersOnFrameCalculator({
   return (
     <>
     {/* ==================== МОБИЛЬНАЯ РАСКЛАДКА ==================== */}
-    <div className="block space-y-5 pb-24 md:hidden">
+    <div className="block space-y-4 pb-24 md:hidden">
       {formSections}
 
       <div className="grid grid-cols-4 gap-1.5">
@@ -339,7 +345,7 @@ export function LightLettersOnFrameCalculator({
       left={formSections}
       right={
         <>
-          <LightLettersPreview mainText={mainText} additionalText={additionalText} letterType={letterType} goldSilver={goldSilver} hasFrame={frameType !== 'none'} />
+          <LightLettersPreview mainText={mainText} additionalText={additionalText} goldSilver={goldSilver} hasFrame={frameType !== 'none'} />
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {gabaritStats.map((s) => (
@@ -384,7 +390,7 @@ export function LightLettersOnFrameCalculator({
 // возможности свернуть: все поля сразу под ним, всегда открыто.
 function Section({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-navy-900">
         <Icon className="h-4 w-4 text-blue-600" /> {title}
       </h3>

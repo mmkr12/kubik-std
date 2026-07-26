@@ -3,18 +3,15 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { TYPE_THUMBS, type LetterType } from '@/lib/light-letters-pricing';
 
 export function LightLettersPreview({
   mainText,
   additionalText,
-  letterType,
   goldSilver,
   hasFrame,
 }: {
   mainText: string;
   additionalText: string;
-  letterType: LetterType;
   goldSilver: boolean;
   hasFrame: boolean;
 }) {
@@ -53,13 +50,6 @@ export function LightLettersPreview({
           )}
         </div>
       )}
-
-      <div className="flex items-center gap-3 border-t border-border px-4 py-3">
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-mist-100">
-          <Image src={TYPE_THUMBS[letterType]} alt="Тип свечения" fill className="object-cover" />
-        </div>
-        <p className="text-xs text-muted-foreground">Пример выбранного типа свечения</p>
-      </div>
     </div>
   );
 }

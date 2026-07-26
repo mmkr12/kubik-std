@@ -6,7 +6,7 @@
 
 export type Diapason = '50-250' | '251-750' | '751-1200';
 export type LetterType = 'full_combo' | 'full_single' | 'front' | 'side' | 'back' | 'back_and_front';
-export type LedType = 'modules' | 'tape';
+export type LedType = 'modules' | 'tape' | 'none';
 export type PsuType = 'ip43' | 'ip67' | 'none';
 export type FrameType = 'none' | 'with_frame';
 export type LedTemp = 'cold' | 'neutral' | 'warm';
@@ -208,22 +208,25 @@ export function calculate(input: CalculatorInput): CalculatorResult {
   }
   letterDesign = Math.round(letterDesign / 100) * 100;
 
-  // Освещение
+  // Освещение — если тип освещения "без освещения", подсветка не считается вовсе.
   const LED_PER_LETTER: Record<Diapason, { modules: number; tapeM: number }> = {
     '50-250': { modules: 5, tapeM: 1 },
     '251-750': { modules: 20, tapeM: 3 },
     '751-1200': { modules: 60, tapeM: 5 },
   };
-  let ledQty = 0; // модулей или метров ленты, суммарно
-  for (const r of rows) {
-    const per = LED_PER_LETTER[r.diapason];
-    ledQty += input.ledType === 'modules' ? r.letterCount * per.modules : r.letterCount * per.tapeM;
+  let lighting = 0;
+  if (input.ledType !== 'none') {
+    let ledQty = 0; // модулей или метров ленты, суммарно
+    for (const r of rows) {
+      const per = LED_PER_LETTER[r.diapason];
+      ledQty += input.ledType === 'modules' ? r.letterCount * per.modules : r.letterCount * per.tapeM;
+    }
+    const ledUnitPrice = input.ledType === 'modules' ? 80 : 1000;
+    const ledCost = ledQty * ledUnitPrice;
+    const blocks = input.psuType === 'none' ? 0 : calcBlocks(ledQty, input.ledType === 'modules' ? 200 : 30);
+    const psuUnitPrice = input.psuType === 'ip67' ? 16000 : input.psuType === 'ip43' ? 8000 : 0;
+    lighting = Math.round((ledCost + blocks * psuUnitPrice) / 100) * 100;
   }
-  const ledUnitPrice = input.ledType === 'modules' ? 80 : 1000;
-  const ledCost = ledQty * ledUnitPrice;
-  const blocks = input.psuType === 'none' ? 0 : calcBlocks(ledQty, input.ledType === 'modules' ? 200 : 30);
-  const psuUnitPrice = input.psuType === 'ip67' ? 16000 : input.psuType === 'ip43' ? 8000 : 0;
-  const lighting = Math.round((ledCost + blocks * psuUnitPrice) / 100) * 100;
 
   // Каркас — ступенчатая цена (каждые 6м расхода металла = 8000₸)
   const metalMeters = rows.reduce((s, r) => s + r.metalMeters, 0);
