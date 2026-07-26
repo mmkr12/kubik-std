@@ -8,7 +8,8 @@ export type Diapason = '50-250' | '251-750' | '751-1200';
 export type LetterType = 'full_combo' | 'full_single' | 'front' | 'side' | 'back' | 'back_and_front';
 export type LedType = 'modules' | 'tape';
 export type PsuType = 'ip43' | 'ip67' | 'none';
-export type FrameType = '20x20' | '40x20' | 'none';
+export type FrameType = 'none' | 'with_frame';
+export type LedTemp = 'cold' | 'neutral' | 'warm';
 export type InstallCity = 'taraz' | 'shymkent' | 'almaty';
 export type DeliveryOption = 'pickup' | 'taraz' | 'shymkent' | 'almaty' | 'cdek';
 export type Complexity = 'light' | 'medium' | 'medium_large' | 'hard';
@@ -123,11 +124,14 @@ function calcBlocks(qty: number, capacity: number): number {
   return Math.floor((qty - grace) / capacity) + 1;
 }
 
-// ---- 6. Каркас: цена за метр по толщине ------------------------------------
-const FRAME_PRICE_PER_M: Record<Exclude<FrameType, 'none'>, number> = {
-  '20x20': 3000,
-  '40x20': 3500,
-};
+// ---- 6. Каркас: ступенчатая цена — каждые 6м расхода = 8000₸ ------------
+const FRAME_STEP_METERS = 6;
+const FRAME_STEP_PRICE = 8000;
+
+function calcFrameStepCost(meters: number): number {
+  if (meters <= 0) return 0;
+  return Math.ceil(meters / FRAME_STEP_METERS) * FRAME_STEP_PRICE;
+}
 
 // ---- 7. Монтаж / доставка ---------------------------------------------------
 const COMPLEXITY_PRICE: Record<Complexity, number> = {
@@ -160,6 +164,7 @@ export interface CalculatorInput {
   letterType: LetterType;
   goldSilver: boolean;
   ledType: LedType;
+  ledTemp: LedTemp;
   psuType: PsuType;
   frameType: FrameType;
   installMode: 'install' | 'delivery' | 'none';
@@ -220,12 +225,12 @@ export function calculate(input: CalculatorInput): CalculatorResult {
   const psuUnitPrice = input.psuType === 'ip67' ? 16000 : input.psuType === 'ip43' ? 8000 : 0;
   const lighting = Math.round((ledCost + blocks * psuUnitPrice) / 100) * 100;
 
-  // Каркас
+  // Каркас — ступенчатая цена (каждые 6м расхода металла = 8000₸)
   const metalMeters = rows.reduce((s, r) => s + r.metalMeters, 0);
-  const frame = input.frameType === 'none' ? 0 : Math.round(metalMeters * FRAME_PRICE_PER_M[input.frameType] / 100) * 100;
+  const frame = input.frameType === 'none' ? 0 : calcFrameStepCost(metalMeters);
 
   const material = letterManufacture + letterDesign + lighting + frame;
-  const production = Math.round(material * 0.6 / 100) * 100;
+  const production = Math.round(material * 0.2 / 100) * 100;
 
   // Монтаж / доставка
   let installDelivery = 0;
