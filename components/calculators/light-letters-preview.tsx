@@ -3,16 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import type { LetterType } from '@/lib/light-letters-pricing';
-
-export const TYPE_THUMBS: Record<LetterType, string> = {
-  full_combo: '/calc/tip/polnoe_combo.png',
-  full_single: '/calc/tip/polnoe.png',
-  front: '/calc/tip/licevoe.png',
-  side: '/calc/tip/bokovoe.png',
-  back: '/calc/tip/zadnee.png',
-  back_and_front: '/calc/tip/zadnee_i_licevoe.png',
-};
+import { TYPE_THUMBS, type LetterType } from '@/lib/light-letters-pricing';
 
 export function LightLettersPreview({
   mainText,

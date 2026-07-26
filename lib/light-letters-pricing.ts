@@ -22,6 +22,17 @@ export const LETTER_TYPE_LABELS: Record<LetterType, string> = {
   back_and_front: 'Заднее и лицевое',
 };
 
+// Миниатюры примеров типа свечения — в обычном модуле (не 'use client'),
+// чтобы серверные страницы (например, /kp) тоже могли их импортировать.
+export const TYPE_THUMBS: Record<LetterType, string> = {
+  full_combo: '/calc/tip/polnoe_combo.png',
+  full_single: '/calc/tip/polnoe.png',
+  front: '/calc/tip/licevoe.png',
+  side: '/calc/tip/bokovoe.png',
+  back: '/calc/tip/zadnee.png',
+  back_and_front: '/calc/tip/zadnee_i_licevoe.png',
+};
+
 // ---- 1. Диапазон высоты буквы --------------------------------------------
 export function getDiapason(heightMm: number): Diapason {
   if (heightMm <= 250) return '50-250';

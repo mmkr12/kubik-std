@@ -2,9 +2,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Logo } from '@/components/logo';
-import { TYPE_THUMBS } from '@/components/calculators/light-letters-preview';
 import { PrepaySection } from '@/components/kp/prepay-section';
-import { calculate, LETTER_TYPE_LABELS, type CalculatorInput } from '@/lib/light-letters-pricing';
+import { calculate, LETTER_TYPE_LABELS, TYPE_THUMBS, type CalculatorInput } from '@/lib/light-letters-pricing';
 import { formatTenge, formatDate } from '@/lib/utils';
 import { ShieldCheck, BadgeCheck, Factory, Ruler, Palette, Lightbulb, Wrench, Truck } from 'lucide-react';
 

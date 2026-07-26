@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { formatTenge } from '@/lib/utils';
 import {
-  calculate, isTypeAvailable, getDiapason, LETTER_TYPE_LABELS,
+  calculate, isTypeAvailable, getDiapason, LETTER_TYPE_LABELS, TYPE_THUMBS,
   type CalculatorInput, type LetterType, type LedType, type PsuType, type FrameType,
   type InstallCity, type Complexity, type DeliveryOption,
 } from '@/lib/light-letters-pricing';
@@ -17,7 +17,7 @@ import { StepperInput } from '@/components/calculators/ui/stepper-input';
 import { CharCounterInput } from '@/components/calculators/ui/char-counter-input';
 import { PriceBreakdown, type PriceLine } from '@/components/calculators/ui/price-breakdown';
 import { CalculatorShell } from '@/components/calculators/ui/calculator-shell';
-import { LightLettersPreview, TYPE_THUMBS } from '@/components/calculators/light-letters-preview';
+import { LightLettersPreview } from '@/components/calculators/light-letters-preview';
 
 const LETTER_TYPES: LetterType[] = ['full_combo', 'full_single', 'front', 'side', 'back', 'back_and_front'];
 
