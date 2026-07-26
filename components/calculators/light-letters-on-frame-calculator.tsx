@@ -169,46 +169,49 @@ export function LightLettersOnFrameCalculator({
         )}
       </Section>
 
-      <Section icon={Palette} title="Внешний вид и каркас">
-        <div className="space-y-1">
+      <Section icon={Palette} title="Внешний вид">
+        <div className="space-y-1.5">
           <Label>Тип свечения</Label>
-          <select
-            value={letterType}
-            onChange={(e) => setLetterType(e.target.value as LetterType)}
-            className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm"
-          >
+          <div className="grid grid-cols-3 gap-2">
             {LETTER_TYPES.map((t) => {
               const available = isTypeAvailable(t, diapasons as any);
+              const active = letterType === t;
               return (
-                <option key={t} value={t} disabled={!available}>
-                  {LETTER_TYPE_LABELS[t]}{!available ? ' (недоступно для этой высоты)' : ''}
-                </option>
+                <button
+                  key={t}
+                  type="button"
+                  disabled={!available}
+                  onClick={() => setLetterType(t)}
+                  className={`flex flex-col items-center gap-1 rounded-xl border-2 p-2 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                    active ? 'border-blue-500 bg-blue-50' : 'border-mist-200 hover:border-mist-300'
+                  }`}
+                >
+                  <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-mist-100">
+                    <Image src={TYPE_THUMBS[t]} alt={LETTER_TYPE_LABELS[t]} fill className="object-cover" />
+                  </span>
+                  <span className={`text-[10px] font-medium leading-tight ${active ? 'text-blue-700' : 'text-navy-700'}`}>
+                    {LETTER_TYPE_LABELS[t]}
+                  </span>
+                </button>
               );
             })}
-          </select>
+          </div>
         </div>
         <label className={`flex items-center gap-2 text-sm ${letterType === 'front' ? 'opacity-40' : 'text-navy-700'}`}>
           <input type="checkbox" checked={goldSilver} disabled={letterType === 'front'} onChange={(e) => setGoldSilver(e.target.checked)} />
           Золото / серебро (лицевое свечение станет недоступно)
         </label>
-        <div className="flex items-center gap-2 rounded-lg bg-mist-50 p-2">
-          <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-mist-100">
-            <Image src={TYPE_THUMBS[letterType]} alt="" fill className="object-cover" />
-          </span>
-          <p className="text-xs text-muted-foreground">Пример выбранного типа свечения</p>
-        </div>
-
-        <div className="space-y-1 pt-1">
-          <Label>Каркас</Label>
-          <select value={frameType} onChange={(e) => setFrameType(e.target.value as FrameType)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
-            <option value="none">Без каркаса</option>
-            <option value="with_frame">С каркасом</option>
-          </select>
-        </div>
       </Section>
 
-      <Section icon={Lightbulb} title="Подсветка">
+      <Section icon={Lightbulb} title="Подсветка и каркас">
         <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label>Каркас</Label>
+            <select value={frameType} onChange={(e) => setFrameType(e.target.value as FrameType)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
+              <option value="none">Без каркаса</option>
+              <option value="with_frame">С каркасом</option>
+            </select>
+          </div>
           <div className="space-y-1">
             <Label>Тип освещения</Label>
             <select value={ledType} onChange={(e) => setLedType(e.target.value as LedType)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
@@ -224,16 +227,16 @@ export function LightLettersOnFrameCalculator({
               <option value="none">Без блока питания</option>
             </select>
           </div>
+          <div className="space-y-1">
+            <Label>Температура</Label>
+            <select value={ledTemp} onChange={(e) => setLedTemp(e.target.value as LedTemp)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
+              <option value="cold">Холодный</option>
+              <option value="neutral">Нейтральный</option>
+              <option value="warm">Тёплый</option>
+            </select>
+          </div>
         </div>
-        <div className="space-y-1">
-          <Label>Тип свечения (температура)</Label>
-          <select value={ledTemp} onChange={(e) => setLedTemp(e.target.value as LedTemp)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
-            <option value="cold">Холодный</option>
-            <option value="neutral">Нейтральный</option>
-            <option value="warm">Тёплый</option>
-          </select>
-          <p className="text-xs text-muted-foreground">На стоимость не влияет — параметр для изготовления.</p>
-        </div>
+        <p className="text-xs text-muted-foreground">Температура на стоимость не влияет — параметр для изготовления.</p>
       </Section>
 
       <Section icon={Truck} title="Монтаж/Доставка">
