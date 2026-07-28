@@ -162,8 +162,8 @@ export function DispatcherBoard() {
         if (!req) continue;
         const update: Record<string, unknown> = {
           production_day: p.productionDay,
-          recommended_install_date: p.productionDay,
-          install_date: p.productionDay,
+          recommended_install_date: p.installDay,
+          install_date: p.installDay,
         };
         if (p.source === 'carryover') update.manual_override = false;
         await supabase.from('requests').update(update).eq('id', p.requestId);

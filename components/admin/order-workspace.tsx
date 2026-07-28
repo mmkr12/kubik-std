@@ -11,6 +11,7 @@ import { formatTenge, formatDate } from '@/lib/utils';
 import { MainCalculator } from '@/components/main-calculator';
 import type { LightLettersDraft } from '@/components/calculators/light-letters-on-frame-calculator';
 import type { ERPRequest, OrderItem, Payment, RequestMaterial, Material } from '@/lib/types';
+import { computeQueuePlacement, type DispatchableRequest } from '@/lib/dispatcher';
 
 // Общий «конструктор заказа» — используется и при первом создании заявки
 // («Замер не требуется»), и при редактировании уже существующего заказа.
@@ -71,30 +72,62 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
     onChanged();
   }
 
+  // Подбирает дату монтажа через тот же алгоритм очереди, что и диспетчер
+  // (lib/dispatcher.ts) — считает эту заявку "новой" в очереди остальных
+  // активных заявок и берёт вычисленный для неё день.
   async function handleSuggestDate() {
-    if (items.length === 0) return;
+    if (!request) return;
     setSuggesting(true);
     try {
-      const withTypes = items
-        .filter((it) => it.manufacture_hours)
-        .map((it) => ({ manufactureHours: it.manufacture_hours ?? 0 }));
-      if (withTypes.length === 0) return;
-      // Планировщик временно упрощён — калькулятор (и типы изделий,
-      // от которых зависел график цеха) убран, ждём новую структуру.
-      setSuggesting(false);
+      const { data: allReqs, error } = await supabase
+        .from('requests')
+        .select('id, created_at, status, manual_override, install_date, production_day')
+        .eq('status', 'in_production');
+      if (error) {
+        console.error('handleSuggestDate: не удалось загрузить очередь', error);
+        return;
+      }
+      const others = ((allReqs as DispatchableRequest[]) ?? []).filter((r) => r.id !== requestId);
+      const thisAsFresh: DispatchableRequest = {
+        id: requestId,
+        created_at: request.created_at,
+        status: 'in_production',
+        manual_override: false,
+        install_date: null,
+        production_day: null,
+      };
+      const placements = computeQueuePlacement([...others, thisAsFresh], new Date());
+      const mine = placements.find((p) => p.requestId === requestId);
+      if (!mine) return;
+      const { error: updError } = await supabase
+        .from('requests')
+        .update({ install_date: mine.installDay, recommended_install_date: mine.installDay, production_day: mine.productionDay })
+        .eq('id', requestId);
+      if (updError) {
+        console.error('handleSuggestDate: не удалось сохранить дату', updError);
+        return;
+      }
+      setInstallDate(mine.installDay);
+      onChanged();
     } finally {
       setSuggesting(false);
     }
   }
 
   async function handleInstallDateBlur() {
-    await supabase.from('requests').update({ install_date: installDate || null }).eq('id', requestId);
+    const { error } = await supabase.from('requests').update({ install_date: installDate || null }).eq('id', requestId);
+    if (error) console.error('handleInstallDateBlur: не удалось сохранить дату', error);
     onChanged();
   }
 
   async function handleAddPayment(amount: number, note: string) {
     if (!amount) return;
-    await supabase.from('payments').insert({ request_id: requestId, amount, note: note || null });
+    const { error } = await supabase.from('payments').insert({ request_id: requestId, amount, note: note || null });
+    if (error) {
+      console.error('handleAddPayment: не удалось сохранить платёж', error);
+      window.alert('Не удалось сохранить платёж: ' + error.message);
+      return;
+    }
     loadAll();
     onChanged();
   }

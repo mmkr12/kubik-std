@@ -151,17 +151,37 @@ export function computeQueuePlacement(requests: DispatchableRequest[], today: Da
     });
   };
 
+  // Когда известен только install_date (production_day ещё не посчитан
+  // диспетчером — ручной ввод даты монтажа менеджером), install_date — это
+  // и есть день МОНТАЖА, а не производства (в отличие от production_day,
+  // который всегда день производства). День производства для учёта загрузки
+  // и типа дня выводим как install_date минус один день.
+  const pushPlacementFromInstallDate = (requestId: string, installDate: Date, source: QueuePlacement['source']) => {
+    placements.push({
+      requestId,
+      productionDay: toISODate(addDays(installDate, -1)),
+      installDay: toISODate(installDate),
+      source,
+    });
+  };
+
   // Уже размещённые (не двигаем), но учитываем в загрузке дней.
   const lockedByDay = new Map<string, number>();
   const bump = (iso: string) => lockedByDay.set(iso, (lockedByDay.get(iso) ?? 0) + 1);
   for (const r of pinned) {
-    bump(r.install_date as string);
-    pushPlacement(r.id, toDate(r.install_date as string), 'pinned_manual');
+    const installDate = toDate(r.install_date as string);
+    bump(toISODate(addDays(installDate, -1)));
+    pushPlacementFromInstallDate(r.id, installDate, 'pinned_manual');
   }
   for (const r of existing) {
-    const anchorDate = (r.production_day ?? r.install_date) as string;
-    bump(anchorDate);
-    pushPlacement(r.id, toDate(anchorDate), 'existing');
+    if (r.production_day) {
+      bump(r.production_day);
+      pushPlacement(r.id, toDate(r.production_day), 'existing');
+    } else {
+      const installDate = toDate(r.install_date as string);
+      bump(toISODate(addDays(installDate, -1)));
+      pushPlacementFromInstallDate(r.id, installDate, 'existing');
+    }
   }
 
   const queue = [...carryover, ...fresh];
