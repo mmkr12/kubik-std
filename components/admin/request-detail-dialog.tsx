@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { History } from 'lucide-react';
+import { History, Zap } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,8 @@ export function RequestDetailDialog({
   const [address, setAddress] = useState(request.address ?? '');
   const [comment, setComment] = useState(request.comment ?? '');
   const [status, setStatus] = useState(request.status);
+  const [urgent, setUrgent] = useState(request.urgent);
+  const [fulfillmentMode, setFulfillmentMode] = useState(request.fulfillment_mode);
   const [saving, setSaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<EventLogRow[]>([]);
@@ -51,6 +53,8 @@ export function RequestDetailDialog({
       setAddress(request.address ?? '');
       setComment(request.comment ?? '');
       setStatus(request.status);
+      setUrgent(request.urgent);
+      setFulfillmentMode(request.fulfillment_mode);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, request.id]);
@@ -80,6 +84,19 @@ export function RequestDetailDialog({
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleToggleUrgent() {
+    const next = !urgent;
+    setUrgent(next);
+    await supabase.from('requests').update({ urgent: next }).eq('id', request.id);
+    onChanged();
+  }
+
+  async function handleFulfillmentModeChange(mode: typeof fulfillmentMode) {
+    setFulfillmentMode(mode);
+    await supabase.from('requests').update({ fulfillment_mode: mode }).eq('id', request.id);
+    onChanged();
   }
 
   return (
@@ -119,6 +136,30 @@ export function RequestDetailDialog({
           <Button className="mt-5 w-full" onClick={handleConvertToOrder} disabled={saving}>
             {saving ? 'Оформляем…' : 'Замер выполнен — оформить заказ'}
           </Button>
+        )}
+
+        {!isMeasurement && (
+          <div className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-border px-3 py-2.5">
+            <button
+              onClick={handleToggleUrgent}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                urgent ? 'bg-amber-100 text-amber-700' : 'bg-mist-100 text-muted-foreground hover:bg-mist-200'
+              }`}
+            >
+              <Zap className="h-3.5 w-3.5" /> Срочно
+            </button>
+            <div className="flex items-center gap-2 text-sm">
+              <Label className="mb-0">Отгрузка:</Label>
+              <select
+                value={fulfillmentMode}
+                onChange={(e) => handleFulfillmentModeChange(e.target.value as typeof fulfillmentMode)}
+                className="h-9 rounded-lg border border-border bg-white px-2 text-sm"
+              >
+                <option value="installation">Монтаж</option>
+                <option value="shipping">Отправка</option>
+              </select>
+            </div>
+          </div>
         )}
 
         <div className="mt-5">
