@@ -2,6 +2,9 @@
 // KUBIK.std — «Световые буквы на каркасе»
 // Вся расчётная логика в одном месте, без UI, чтобы формулы
 // было легко проверить и поправить отдельно от интерфейса.
+// Все цены и коэффициенты вынесены в LightLettersPricingConfig —
+// редактируются в /admin/settings без правки кода (хранятся в
+// production_settings.light_letters_pricing).
 // ============================================================
 
 export type Diapason = '50-250' | '251-750' | '751-1200';
@@ -41,26 +44,82 @@ export function getDiapason(heightMm: number): Diapason {
   return '751-1200';
 }
 
-// ---- 2. Базовая стоимость изготовления (₸/мм высоты) по диапазону -------
-const RATE_PER_MM: Record<Diapason, number> = {
-  '50-250': 17,
-  '251-750': 27,
-  '751-1200': 22,
+// ============================================================
+// Конфигурация цен — редактируется в /admin/settings
+// ============================================================
+
+export interface LightLettersPricingConfig {
+  // 2. Базовая стоимость изготовления (₸/мм высоты) по диапазону
+  ratePerMm: Record<Diapason, number>;
+  // 3. Процент глубины букв — три опорные точки (мм → доля от 100%).
+  // За пределами известных точек экстраполируется тем же наклоном.
+  depthAnchors: [number, number][];
+  // 4. Множитель по типу свечения, зависит от диапазона (null = недоступно)
+  typeMultipliers: Record<LetterType, Record<Diapason, number | null>>;
+  goldSilverMultiplier: number;
+  // 5. Подсветка
+  ledPerLetter: Record<Diapason, { modules: number; tapeM: number }>;
+  ledModuleUnitPrice: number;
+  ledTapeUnitPricePerM: number;
+  // Блоки питания: 1 блок на N модулей/метров ленты, + запас (доля от ёмкости)
+  psuModuleCapacity: number;
+  psuTapeCapacityM: number;
+  psuGraceFraction: number;
+  psuUnitPrice: { ip43: number; ip67: number };
+  // 6. Каркас: ступенчатая цена — каждые N метров расхода = цена
+  frameStepMeters: number;
+  frameStepPrice: number;
+  // 7. Монтаж / доставка
+  complexityPrice: Record<Complexity, number>;
+  cityFixedPrice: Partial<Record<InstallCity, number>>;
+  deliveryPrice: Record<Exclude<DeliveryOption, 'cdek'>, number>;
+  // «Изготовление» — наценка сверх себестоимости материалов
+  productionPct: number;
+  // Срочно: (Изготовление + Монтаж) × множитель
+  urgentMultiplier: number;
+}
+
+export const DEFAULT_PRICING_CONFIG: LightLettersPricingConfig = {
+  ratePerMm: { '50-250': 17, '251-750': 27, '751-1200': 22 },
+  depthAnchors: [
+    [40, 0.845],
+    [50, 1.0],
+    [60, 1.16],
+  ],
+  typeMultipliers: {
+    full_combo: { '50-250': 1.25, '251-750': 1.4, '751-1200': null },
+    full_single: { '50-250': 1, '251-750': 1, '751-1200': 2 },
+    front: { '50-250': 1.15, '251-750': 1, '751-1200': 1 },
+    side: { '50-250': 1.2, '251-750': 1, '751-1200': 2 },
+    back: { '50-250': 1.5, '251-750': 1.6, '751-1200': 1.4 },
+    back_and_front: { '50-250': 1.8, '251-750': 2, '751-1200': 2 },
+  },
+  goldSilverMultiplier: 1.5,
+  ledPerLetter: {
+    '50-250': { modules: 5, tapeM: 1 },
+    '251-750': { modules: 20, tapeM: 3 },
+    '751-1200': { modules: 60, tapeM: 5 },
+  },
+  ledModuleUnitPrice: 80,
+  ledTapeUnitPricePerM: 1000,
+  psuModuleCapacity: 200,
+  psuTapeCapacityM: 30,
+  psuGraceFraction: 0.2,
+  psuUnitPrice: { ip43: 8000, ip67: 16000 },
+  frameStepMeters: 6,
+  frameStepPrice: 8000,
+  complexityPrice: { light: 10000, medium: 25000, medium_large: 40000, hard: 60000 },
+  cityFixedPrice: { shymkent: 60000, almaty: 120000 },
+  deliveryPrice: { pickup: 0, taraz: 5000, shymkent: 15000, almaty: 20000 },
+  productionPct: 0.2,
+  urgentMultiplier: 1.5,
 };
 
-// ---- 3. Процент глубины букв — три опорные точки + интерполяция ---------
-// 40мм=84.5%, 50мм=100%, 60мм=116%. За пределами — тем же наклоном,
-// что и у ближайшего известного отрезка (как ты и разрешил — "определи сам").
-const DEPTH_ANCHORS: [number, number][] = [
-  [40, 0.845],
-  [50, 1.0],
-  [60, 1.16],
-];
-
-export function getDepthPct(depthMm: number): number {
+export function getDepthPct(depthMm: number, config: LightLettersPricingConfig = DEFAULT_PRICING_CONFIG): number {
   const d = Math.min(Math.max(depthMm, 20), 100);
-  const [a1, a2] = DEPTH_ANCHORS;
-  const [b1, b2] = [DEPTH_ANCHORS[1], DEPTH_ANCHORS[2]];
+  const anchors = config.depthAnchors;
+  const [a1, a2] = anchors;
+  const [b1, b2] = [anchors[1], anchors[2]];
 
   if (d <= a1[0]) {
     const slope = (a2[1] - a1[1]) / (a2[0] - a1[0]);
@@ -74,20 +133,8 @@ export function getDepthPct(depthMm: number): number {
   return b2[1] + slope * (d - b2[0]);
 }
 
-// ---- 4. Множитель по типу свечения, зависит от диапазона ----------------
-// null = "не доступно" в этом диапазоне.
-const TYPE_MULTIPLIERS: Record<LetterType, Record<Diapason, number | null>> = {
-  full_combo: { '50-250': 1.25, '251-750': 1.4, '751-1200': null },
-  full_single: { '50-250': 1, '251-750': 1, '751-1200': 2 },
-  front: { '50-250': 1.15, '251-750': 1, '751-1200': 1 },
-  side: { '50-250': 1.2, '251-750': 1, '751-1200': 2 },
-  back: { '50-250': 1.5, '251-750': 1.6, '751-1200': 1.4 },
-  back_and_front: { '50-250': 1.8, '251-750': 2, '751-1200': 2 },
-};
-const GOLD_SILVER_MULTIPLIER = 1.5;
-
-export function isTypeAvailable(type: LetterType, diapasons: Diapason[]): boolean {
-  return diapasons.every((d) => TYPE_MULTIPLIERS[type][d] !== null);
+export function isTypeAvailable(type: LetterType, diapasons: Diapason[], config: LightLettersPricingConfig = DEFAULT_PRICING_CONFIG): boolean {
+  return diapasons.every((d) => config.typeMultipliers[type][d] !== null);
 }
 
 // ---- Строка текста (основной или дополнительный) -------------------------
@@ -107,49 +154,25 @@ function countLetters(text: string): number {
   return text.replace(/\s/g, '').length || 0;
 }
 
-function calcRow(row: TextRow, depthMm: number): RowResult {
+function calcRow(row: TextRow, depthMm: number, config: LightLettersPricingConfig): RowResult {
   const letterCount = countLetters(row.text);
   const diapason = getDiapason(row.heightMm);
-  const baseCost = row.heightMm * RATE_PER_MM[diapason] * letterCount * getDepthPct(depthMm);
+  const baseCost = row.heightMm * config.ratePerMm[diapason] * letterCount * getDepthPct(depthMm, config);
   const metalMeters = (letterCount * row.heightMm * 2 + row.heightMm * 4) / 1000;
 
   return { diapason, letterCount, baseCost, metalMeters };
 }
 
-// ---- 5. Блоки питания: 1 блок на 200 модулей / 30м ленты, +20% запас ------
-// Порог для (n+1)-го блока = n × ёмкость + 20% от одной ёмкости.
-function calcBlocks(qty: number, capacity: number): number {
+function calcBlocks(qty: number, capacity: number, graceFraction: number): number {
   if (qty <= 0) return 0;
-  const grace = capacity * 0.2;
+  const grace = capacity * graceFraction;
   return Math.floor((qty - grace) / capacity) + 1;
 }
 
-// ---- 6. Каркас: ступенчатая цена — каждые 6м расхода = 8000₸ ------------
-const FRAME_STEP_METERS = 6;
-const FRAME_STEP_PRICE = 8000;
-
-function calcFrameStepCost(meters: number): number {
+function calcFrameStepCost(meters: number, config: LightLettersPricingConfig): number {
   if (meters <= 0) return 0;
-  return Math.ceil(meters / FRAME_STEP_METERS) * FRAME_STEP_PRICE;
+  return Math.ceil(meters / config.frameStepMeters) * config.frameStepPrice;
 }
-
-// ---- 7. Монтаж / доставка ---------------------------------------------------
-const COMPLEXITY_PRICE: Record<Complexity, number> = {
-  light: 10000,
-  medium: 25000,
-  medium_large: 40000,
-  hard: 60000,
-};
-const CITY_FIXED_PRICE: Partial<Record<InstallCity, number>> = {
-  shymkent: 60000,
-  almaty: 120000,
-};
-const DELIVERY_PRICE: Record<Exclude<DeliveryOption, 'cdek'>, number> = {
-  pickup: 0,
-  taraz: 5000,
-  shymkent: 15000,
-  almaty: 20000,
-};
 
 // ============================================================
 // Главная функция расчёта
@@ -181,17 +204,17 @@ export interface CalculatorResult {
   lighting: number; // "Освещение"
   frame: number; // "Изготовление каркаса"
   material: number; // сумма 4 строк выше
-  production: number; // "Изготовление" = 60% от material
+  production: number; // "Изготовление" — наценка сверх себестоимости (config.productionPct)
   installDelivery: number; // "Монтаж / Доставка"
   urgentSurcharge: number; // доплата за срочность (уже включена в install+production при подсчёте total, но показываем отдельно)
   total: number;
   rows: { main: RowResult; additional: RowResult | null };
 }
 
-export function calculate(input: CalculatorInput): CalculatorResult {
-  const mainRow = calcRow({ text: input.mainText, heightMm: input.mainHeightMm }, input.depthMm);
+export function calculate(input: CalculatorInput, config: LightLettersPricingConfig = DEFAULT_PRICING_CONFIG): CalculatorResult {
+  const mainRow = calcRow({ text: input.mainText, heightMm: input.mainHeightMm }, input.depthMm, config);
   const hasAdditional = input.additionalText.trim().length > 0;
-  const addRow = hasAdditional ? calcRow({ text: input.additionalText, heightMm: input.additionalHeightMm }, input.depthMm) : null;
+  const addRow = hasAdditional ? calcRow({ text: input.additionalText, heightMm: input.additionalHeightMm }, input.depthMm, config) : null;
 
   const rows = [mainRow, ...(addRow ? [addRow] : [])];
 
@@ -202,50 +225,46 @@ export function calculate(input: CalculatorInput): CalculatorResult {
   // Золото/серебро — доп. множитель "в дополнение к любому типу".
   let letterDesign = 0;
   for (const r of rows) {
-    const typeMult = TYPE_MULTIPLIERS[input.letterType][r.diapason] ?? 1;
-    const finalCost = input.goldSilver ? r.baseCost * typeMult * GOLD_SILVER_MULTIPLIER : r.baseCost * typeMult;
+    const typeMult = config.typeMultipliers[input.letterType][r.diapason] ?? 1;
+    const finalCost = input.goldSilver ? r.baseCost * typeMult * config.goldSilverMultiplier : r.baseCost * typeMult;
     letterDesign += finalCost - r.baseCost;
   }
   letterDesign = Math.round(letterDesign / 100) * 100;
 
   // Освещение — если тип освещения "без освещения", подсветка не считается вовсе.
-  const LED_PER_LETTER: Record<Diapason, { modules: number; tapeM: number }> = {
-    '50-250': { modules: 5, tapeM: 1 },
-    '251-750': { modules: 20, tapeM: 3 },
-    '751-1200': { modules: 60, tapeM: 5 },
-  };
   let lighting = 0;
   if (input.ledType !== 'none') {
     let ledQty = 0; // модулей или метров ленты, суммарно
     for (const r of rows) {
-      const per = LED_PER_LETTER[r.diapason];
+      const per = config.ledPerLetter[r.diapason];
       ledQty += input.ledType === 'modules' ? r.letterCount * per.modules : r.letterCount * per.tapeM;
     }
-    const ledUnitPrice = input.ledType === 'modules' ? 80 : 1000;
+    const ledUnitPrice = input.ledType === 'modules' ? config.ledModuleUnitPrice : config.ledTapeUnitPricePerM;
     const ledCost = ledQty * ledUnitPrice;
-    const blocks = input.psuType === 'none' ? 0 : calcBlocks(ledQty, input.ledType === 'modules' ? 200 : 30);
-    const psuUnitPrice = input.psuType === 'ip67' ? 16000 : input.psuType === 'ip43' ? 8000 : 0;
+    const capacity = input.ledType === 'modules' ? config.psuModuleCapacity : config.psuTapeCapacityM;
+    const blocks = input.psuType === 'none' ? 0 : calcBlocks(ledQty, capacity, config.psuGraceFraction);
+    const psuUnitPrice = input.psuType === 'ip67' ? config.psuUnitPrice.ip67 : input.psuType === 'ip43' ? config.psuUnitPrice.ip43 : 0;
     lighting = Math.round((ledCost + blocks * psuUnitPrice) / 100) * 100;
   }
 
-  // Каркас — ступенчатая цена (каждые 6м расхода металла = 8000₸)
+  // Каркас — ступенчатая цена (каждые frameStepMeters расхода металла = frameStepPrice)
   const metalMeters = rows.reduce((s, r) => s + r.metalMeters, 0);
-  const frame = input.frameType === 'none' ? 0 : calcFrameStepCost(metalMeters);
+  const frame = input.frameType === 'none' ? 0 : calcFrameStepCost(metalMeters, config);
 
   const material = letterManufacture + letterDesign + lighting + frame;
-  const production = Math.round(material * 0.2 / 100) * 100;
+  const production = Math.round((material * config.productionPct) / 100) * 100;
 
   // Монтаж / доставка
   let installDelivery = 0;
   if (input.installMode === 'install') {
-    installDelivery = CITY_FIXED_PRICE[input.installCity] ?? COMPLEXITY_PRICE[input.complexity];
+    installDelivery = config.cityFixedPrice[input.installCity] ?? config.complexityPrice[input.complexity];
   } else if (input.installMode === 'delivery') {
-    installDelivery = input.deliveryOption === 'cdek' ? 0 : DELIVERY_PRICE[input.deliveryOption as Exclude<DeliveryOption, 'cdek'>];
+    installDelivery = input.deliveryOption === 'cdek' ? 0 : config.deliveryPrice[input.deliveryOption as Exclude<DeliveryOption, 'cdek'>];
   }
 
-  // Срочно: (Изготовление + Монтаж) × 1.5 — считаем от уже округлённых
-  // строк сметы, чтобы смета и итог сходились без расхождений в копейках.
-  const urgentMultiplier = input.urgent ? 1.5 : 1;
+  // Срочно: (Изготовление + Монтаж) × urgentMultiplier — считаем от уже
+  // округлённых строк сметы, чтобы смета и итог сходились без расхождений в копейках.
+  const urgentMultiplier = input.urgent ? config.urgentMultiplier : 1;
   const productionFinal = Math.round((production * urgentMultiplier) / 100) * 100;
   const installDeliveryFinal = Math.round((installDelivery * urgentMultiplier) / 100) * 100;
   const urgentSurcharge = (productionFinal - production) + (installDeliveryFinal - installDelivery);

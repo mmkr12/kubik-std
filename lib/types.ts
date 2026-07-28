@@ -1,4 +1,5 @@
 import type { FulfillmentMode } from './dispatcher';
+import type { LightLettersPricingConfig } from './light-letters-pricing';
 
 export type OrderStatus = 'measurement' | 'lost' | 'production' | 'done';
 
@@ -267,6 +268,16 @@ export interface OrderOperation {
   completion_photos: string[];
   completion_comment: string | null;
   created_at: string;
+}
+
+export interface ProductionSettings {
+  id: number;
+  daily_capacity_hours: number;
+  sunday_multiplier: number;
+  weekday_surcharge_small: number;
+  install_pricing: Record<string, unknown>;
+  light_letters_pricing: LightLettersPricingConfig;
+  updated_at: string;
 }
 
 export interface EmployeeCompetency {

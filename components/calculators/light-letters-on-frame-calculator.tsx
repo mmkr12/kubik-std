@@ -7,10 +7,11 @@ import Image from 'next/image';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { formatTenge } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
 import {
-  calculate, isTypeAvailable, getDiapason, LETTER_TYPE_LABELS, TYPE_THUMBS,
+  calculate, isTypeAvailable, getDiapason, LETTER_TYPE_LABELS, TYPE_THUMBS, DEFAULT_PRICING_CONFIG,
   type CalculatorInput, type LetterType, type LedType, type LedTemp, type PsuType, type FrameType,
-  type InstallCity, type Complexity, type DeliveryOption,
+  type InstallCity, type Complexity, type DeliveryOption, type LightLettersPricingConfig,
 } from '@/lib/light-letters-pricing';
 import { StepperInput } from '@/components/calculators/ui/stepper-input';
 import { CharCounterInput } from '@/components/calculators/ui/char-counter-input';
@@ -52,11 +53,26 @@ export function LightLettersOnFrameCalculator({
   const [urgent, setUrgent] = useState(false);
   const [saved, setSaved] = useState(false);
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
+  const [pricingConfig, setPricingConfig] = useState<LightLettersPricingConfig>(DEFAULT_PRICING_CONFIG);
 
   // При открытии — проверяем, есть ли ранее сохранённый расчёт в куках.
   useEffect(() => {
     const match = document.cookie.match(/kubik_calc_letters=([^;]+)/);
     if (match) setHasSavedDraft(true);
+  }, []);
+
+  // Цены редактируются в /admin/settings — подтягиваем их один раз при
+  // открытии; пока грузится (или если строки ещё нет), считаем по
+  // дефолтным цифрам, чтобы калькулятор не завис пустым.
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from('production_settings')
+      .select('light_letters_pricing')
+      .single()
+      .then(({ data }) => {
+        if (data?.light_letters_pricing) setPricingConfig(data.light_letters_pricing as LightLettersPricingConfig);
+      });
   }, []);
 
   function handleRestore() {
@@ -108,10 +124,10 @@ export function LightLettersOnFrameCalculator({
     installMode, installCity, complexity, deliveryOption, urgent,
   };
 
-  const result = useMemo(() => calculate(input), [
+  const result = useMemo(() => calculate(input, pricingConfig), [
     mainText, mainHeightMm, depthMm, additionalText, additionalHeightMm,
     letterType, goldSilver, ledType, ledTemp, psuType, frameType,
-    installMode, installCity, complexity, deliveryOption, urgent,
+    installMode, installCity, complexity, deliveryOption, urgent, pricingConfig,
   ]);
 
   const priceLines: PriceLine[] = [
@@ -174,7 +190,7 @@ export function LightLettersOnFrameCalculator({
           <Label>Тип свечения</Label>
           <div className="grid grid-cols-3 gap-1.5 md:grid-cols-6 md:gap-2">
             {LETTER_TYPES.map((t) => {
-              const available = isTypeAvailable(t, diapasons as any);
+              const available = isTypeAvailable(t, diapasons as any, pricingConfig);
               const active = letterType === t;
               return (
                 <button

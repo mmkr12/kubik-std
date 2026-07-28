@@ -3,8 +3,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Logo } from '@/components/logo';
 import { PrepaySection } from '@/components/kp/prepay-section';
-import { calculate, LETTER_TYPE_LABELS, TYPE_THUMBS, type CalculatorInput } from '@/lib/light-letters-pricing';
+import { calculate, DEFAULT_PRICING_CONFIG, LETTER_TYPE_LABELS, TYPE_THUMBS, type CalculatorInput, type LightLettersPricingConfig } from '@/lib/light-letters-pricing';
 import { formatTenge, formatDate } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/server';
 import { ShieldCheck, BadgeCheck, Factory, Ruler, Palette, Lightbulb, Wrench, Truck } from 'lucide-react';
 
 export const metadata = { title: 'Коммерческое предложение — Kubik.std' };
@@ -22,11 +23,15 @@ const INSTALL_CITY_LABELS: Record<string, string> = { taraz: 'Тараз', shymk
 const DELIVERY_LABELS: Record<string, string> = { pickup: 'Самовывоз', taraz: 'Тараз', shymkent: 'Шымкент', almaty: 'Алматы', cdek: 'СДЭК' };
 const COMPLEXITY_LABELS: Record<string, string> = { light: 'Лёгкий', medium: 'Средний', medium_large: 'Средний (габарит)', hard: 'Сложный' };
 
-export default function KPPage({ searchParams }: { searchParams: { d?: string } }) {
+export default async function KPPage({ searchParams }: { searchParams: { d?: string } }) {
   const input = decodeInput(searchParams.d);
   if (!input) notFound();
 
-  const result = calculate(input);
+  const supabase = createClient();
+  const { data } = await supabase.from('production_settings').select('light_letters_pricing').single();
+  const config = (data?.light_letters_pricing as LightLettersPricingConfig | undefined) ?? DEFAULT_PRICING_CONFIG;
+
+  const result = calculate(input, config);
 
   const estimatedDate = new Date();
   estimatedDate.setDate(estimatedDate.getDate() + 10);
