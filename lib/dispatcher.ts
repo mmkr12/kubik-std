@@ -95,11 +95,16 @@ const MAX_WEEKS_LOOKAHEAD = 20;
  *
  * Уже размещённые заявки (production_day в будущем/текущей неделе) не
  * трогаются повторным запуском — иначе план дёргался бы на каждый клик
- * «Обновить план». Заявки с production_day в прошлой (уже закрытой) неделе,
- * которые всё ещё не done, — это «незавершённые объекты»: они переносятся и
- * ставятся первыми в очередь текущей недели (приоритет над новыми).
- * manual_override-заявки (менеджер выставил дату вручную) никогда не
- * двигаются, но учитываются в загрузке своего дня.
+ * «Обновить план». Заявки с production_day (или install_date, см. ниже)
+ * в прошлой (уже закрытой) неделе, которые всё ещё не done, — это
+ * «незавершённые объекты»: они переносятся и ставятся первыми в очередь
+ * текущей недели (приоритет над новыми).
+ * manual_override-заявки (менеджер выставил дату вручную) не двигаются,
+ * пока их неделя ещё не прошла — но регламент требует переносить
+ * незавершённые объекты безусловно, поэтому просроченная manual_override-
+ * заявка тоже становится carryover и получает новую дату (ручной пин
+ * снимается — иначе просроченные тестовые/старые заявки, у которых
+ * manual_override оказался true, зависали бы в очереди навсегда).
  */
 export function computeQueuePlacement(requests: DispatchableRequest[], today: Date): QueuePlacement[] {
   const currentWeekStart = toISODate(startOfWeek(today));
@@ -118,9 +123,11 @@ export function computeQueuePlacement(requests: DispatchableRequest[], today: Da
     // такие заявки считались бы "новыми" при каждом запуске и алгоритм
     // молча переставлял бы им уже назначенную дату.
     const anchorDate = r.production_day ?? r.install_date;
-    if (r.manual_override && r.install_date) {
+    const isOverdue = !!anchorDate && toISODate(startOfWeek(new Date(anchorDate))) < currentWeekStart;
+
+    if (r.manual_override && r.install_date && !isOverdue) {
       pinned.push(r);
-    } else if (anchorDate && toISODate(startOfWeek(new Date(anchorDate))) < currentWeekStart) {
+    } else if (anchorDate && isOverdue) {
       carryover.push(r);
     } else if (anchorDate) {
       existing.push(r);

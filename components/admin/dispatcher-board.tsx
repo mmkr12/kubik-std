@@ -152,6 +152,10 @@ export function DispatcherBoard() {
     try {
       // 1. Персистим только новые/перенесённые размещения — те, что уже
       // стоят на своём месте (existing/pinned_manual), не трогаем.
+      // Для carryover install_date переписываем всегда, даже если
+      // manual_override был true — заявка просрочена, значит ручной пин
+      // больше не действует, и мы его снимаем (менеджер может закрепить
+      // новую дату заново, если нужно).
       for (const p of placements) {
         if (p.source !== 'new' && p.source !== 'carryover') continue;
         const req = requests.find((r) => r.id === p.requestId);
@@ -159,8 +163,9 @@ export function DispatcherBoard() {
         const update: Record<string, unknown> = {
           production_day: p.productionDay,
           recommended_install_date: p.productionDay,
+          install_date: p.productionDay,
         };
-        if (!req.manual_override) update.install_date = p.productionDay;
+        if (p.source === 'carryover') update.manual_override = false;
         await supabase.from('requests').update(update).eq('id', p.requestId);
       }
 
