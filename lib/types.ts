@@ -1,3 +1,5 @@
+import type { FulfillmentMode } from './dispatcher';
+
 export type OrderStatus = 'measurement' | 'lost' | 'production' | 'done';
 
 export interface Order {
@@ -176,6 +178,9 @@ export interface ERPRequest {
   install_date: string | null;
   desired_measurement_date: string | null;
   manual_override: boolean;
+  urgent: boolean;
+  production_day: string | null;
+  fulfillment_mode: FulfillmentMode;
   total_cost: number;
   paid_amount: number;
   fully_paid: boolean;
@@ -244,7 +249,8 @@ export type OperationStatus = 'locked' | 'available' | 'in_progress' | 'done';
 
 export interface OrderOperation {
   id: string;
-  order_item_id: string;
+  order_item_id: string | null;
+  request_id: string | null;
   operation_template_id: string | null;
   key: string;
   name: string;
@@ -261,6 +267,13 @@ export interface OrderOperation {
   completion_photos: string[];
   completion_comment: string | null;
   created_at: string;
+}
+
+export interface EmployeeCompetency {
+  id: string;
+  employee_id: string;
+  stage_key: string;
+  rank: number;
 }
 
 export interface PayrollAccrual {

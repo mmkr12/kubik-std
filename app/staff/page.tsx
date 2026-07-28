@@ -35,13 +35,13 @@ export default function StaffHomePage() {
     const [{ data: ops }, { data: acc }] = await Promise.all([
       supabase
         .from('order_operations')
-        .select('*, order_item:order_items(request:requests(name))')
+        .select('*, order_item:order_items(request:requests(name)), request:requests(name)')
         .eq('assigned_employee_id', emp.id)
         .in('status', ['available', 'in_progress', 'locked'])
         .order('created_at'),
       supabase.from('payroll_accruals').select('*').eq('employee_id', emp.id).order('accrued_at', { ascending: false }).limit(20),
     ]);
-    setOperations(((ops as any[]) ?? []).map((o) => ({ ...o, request_name: o.order_item?.request?.name })));
+    setOperations(((ops as any[]) ?? []).map((o) => ({ ...o, request_name: o.order_item?.request?.name ?? o.request?.name })));
     setAccruals((acc as PayrollAccrual[]) ?? []);
     setLoading(false);
   }
