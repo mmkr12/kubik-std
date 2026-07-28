@@ -109,10 +109,11 @@ export function DispatcherBoard() {
 
   const placementByRequest = useMemo(() => new Map(placements.map((p) => [p.requestId, p])), [placements]);
 
-  const activeToday = useMemo(() => {
+  // Строго "сегодняшние" объекты — по факту дня (пн/ср/пт = их производство,
+  // вт/чт/сб = их монтаж, воскресенье-резерв = всё непросроченное на неделе).
+  const strictActiveToday = useMemo(() => {
     if (dayType === 'day_off') return [];
     if (dayType === 'sunday_active') {
-      // Воскресенье — резерв для всего, что не завершено на этой неделе.
       return requests.filter((r) => {
         const p = placementByRequest.get(r.id);
         return p && (p.productionDay <= todayISO || p.installDay <= todayISO);
@@ -123,6 +124,40 @@ export function DispatcherBoard() {
     }
     return requests.filter((r) => placementByRequest.get(r.id)?.installDay === todayISO);
   }, [dayType, requests, placementByRequest, todayISO]);
+
+  // Монтажи/отправки строго сегодняшнего дня — эта дата не "подтягивается"
+  // заранее (в отличие от подготовки), монтаж либо сегодня, либо нет.
+  const installToday = useMemo(
+    () => requests.filter((r) => placementByRequest.get(r.id)?.installDay === todayISO),
+    [requests, placementByRequest, todayISO]
+  );
+
+  // Правило регламента "никогда не оставлять сотрудников без задач":
+  // если строго на сегодня по графику ничего нет (например, сегодня
+  // монтажный день, но монтажей не назначено), не показываем пустой день —
+  // подтягиваем объекты с ближайшей будущей датой (производства или
+  // монтажа), чтобы по ним можно было начать подготовку заранее. График
+  // пн/ср/пт-вт/чт/сб остаётся ориентиром, а не жёстким запретом на работу.
+  const nextUpcomingDate = useMemo(() => {
+    if (dayType === 'day_off' || strictActiveToday.length > 0) return null;
+    let min: string | null = null;
+    for (const p of placements) {
+      for (const d of [p.productionDay, p.installDay]) {
+        if (d > todayISO && (!min || d < min)) min = d;
+      }
+    }
+    return min;
+  }, [dayType, strictActiveToday, placements, todayISO]);
+
+  const isPreview = strictActiveToday.length === 0 && !!nextUpcomingDate;
+
+  const activeToday = useMemo(() => {
+    if (!isPreview) return strictActiveToday;
+    return requests.filter((r) => {
+      const p = placementByRequest.get(r.id);
+      return p && (p.productionDay === nextUpcomingDate || p.installDay === nextUpcomingDate);
+    });
+  }, [isPreview, strictActiveToday, requests, placementByRequest, nextUpcomingDate]);
 
   const activeOperations: ActiveOperation[] = useMemo(
     () =>
@@ -199,8 +234,7 @@ export function DispatcherBoard() {
 
   if (loading) return <p className="text-muted-foreground">Загрузка…</p>;
 
-  const dueToday = requests.filter((r) => placementByRequest.get(r.id)?.installDay === todayISO);
-  const overloadByCount = activeToday.length > 3;
+  const overloadByCount = strictActiveToday.length > 3;
   const understaffed = assignmentResult.understaffedStages;
   const overload = overloadByCount || understaffed.length > 0;
 
@@ -222,7 +256,14 @@ export function DispatcherBoard() {
 
       {/* 3. Активные объекты */}
       <Section title="Активные объекты сегодня">
-        {activeToday.length === 0 && <Empty text="Сегодня нет активных объектов." />}
+        {isPreview && (
+          <div className="mb-3 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700">
+            По графику на сегодня ничего не запланировано — чтобы никто не простаивал, показаны
+            объекты с ближайшей датой ({formatDate(nextUpcomingDate as string)}): по ним можно
+            начинать подготовку заранее.
+          </div>
+        )}
+        {activeToday.length === 0 && <Empty text="Активных и предстоящих объектов нет." />}
         <div className="space-y-2">
           {activeToday.map((r) => (
             <ObjectRow key={r.id} request={r} placement={placementByRequest.get(r.id)} />
@@ -232,44 +273,39 @@ export function DispatcherBoard() {
 
       {/* 4. План производства */}
       <Section title="План производства">
-        {dayType !== 'production' && dayType !== 'sunday_active' && <Empty text="Сегодня не производственный день." />}
-        {(dayType === 'production' || dayType === 'sunday_active') && (
-          <div className="space-y-3">
-            {activeToday.map((r) => {
-              const ops = operations.filter((o) => o.request_id === r.id);
-              return (
-                <div key={r.id} className="rounded-lg border border-border px-3 py-2.5">
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <span className="font-medium text-navy-900">{r.name}</span>
-                    {r.urgent && <Badge variant="danger">Срочно — доп. смена 20:00–23:59</Badge>}
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ops.length === 0 && <span className="text-xs text-muted-foreground">Цепочка этапов ещё не создана — нажмите «Обновить план»</span>}
-                    {ops.map((op) => (
-                      <StageChip key={op.id} op={op} employeeName={employees.find((e) => e.id === op.assigned_employee_id)?.full_name} />
-                    ))}
-                  </div>
+        {activeToday.length === 0 && <Empty text="Нет объектов для подготовки." />}
+        <div className="space-y-3">
+          {activeToday.map((r) => {
+            const ops = operations.filter((o) => o.request_id === r.id);
+            return (
+              <div key={r.id} className="rounded-lg border border-border px-3 py-2.5">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="font-medium text-navy-900">{r.name}</span>
+                  {r.urgent && <Badge variant="danger">Срочно — доп. смена 20:00–23:59</Badge>}
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <div className="flex flex-wrap gap-1.5">
+                  {ops.length === 0 && <span className="text-xs text-muted-foreground">Цепочка этапов ещё не создана — нажмите «Обновить план»</span>}
+                  {ops.map((op) => (
+                    <StageChip key={op.id} op={op} employeeName={employees.find((e) => e.id === op.assigned_employee_id)?.full_name} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </Section>
 
-      {/* 5. План монтажей / отправок */}
+      {/* 5. План монтажей / отправок — строго сегодняшняя дата, не подтягивается заранее */}
       <Section title="План монтажей и отправок">
-        {dayType !== 'installation' && dayType !== 'sunday_active' && <Empty text="Сегодня не монтажный день." />}
-        {(dayType === 'installation' || dayType === 'sunday_active') && (
-          <div className="space-y-2">
-            {activeToday.length === 0 && <Empty text="Нет объектов к монтажу/отправке сегодня." />}
-            {activeToday.map((r) => (
-              <div key={r.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
-                <span className="text-navy-800">{r.name}</span>
-                <Badge>{r.fulfillment_mode === 'shipping' ? 'Отправка' : 'Монтаж'}</Badge>
-              </div>
-            ))}
-          </div>
-        )}
+        {installToday.length === 0 && <Empty text="Нет объектов к монтажу/отправке сегодня." />}
+        <div className="space-y-2">
+          {installToday.map((r) => (
+            <div key={r.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
+              <span className="text-navy-800">{r.name}</span>
+              <Badge>{r.fulfillment_mode === 'shipping' ? 'Отправка' : 'Монтаж'}</Badge>
+            </div>
+          ))}
+        </div>
       </Section>
 
       {/* 6-7. Распределение сотрудников и этапы */}
@@ -322,9 +358,9 @@ export function DispatcherBoard() {
 
       {/* 8. Что должно быть завершено сегодня */}
       <Section title="Объекты, которые должны быть завершены сегодня">
-        {dueToday.length === 0 && <Empty text="Сегодня нет объектов с монтажом/отправкой." />}
+        {installToday.length === 0 && <Empty text="Сегодня нет объектов с монтажом/отправкой." />}
         <div className="space-y-2">
-          {dueToday.map((r) => (
+          {installToday.map((r) => (
             <div key={r.id} className="rounded-lg border border-border px-3 py-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-navy-800">{r.name}</span>

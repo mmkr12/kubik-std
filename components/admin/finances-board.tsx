@@ -108,12 +108,20 @@ export function FinancesBoard() {
             const payroll = accrualsByRequest.get(r.id) ?? 0;
             const mat = materialsByRequest.get(r.id) ?? 0;
             const fundsAlloc = fundsByRequest.get(r.id) ?? 0;
-            const netProfit = r.total_cost - mat - payroll;
+            // Считаем от реально полученных денег (paid_amount), а не от
+            // полной суммы заказа — иначе "чистая прибыль" показывала бы
+            // прибыль по ещё не оплаченному заказу, а "Фонды" (которые
+            // формируются только из фактических платежей) с ней не бились.
+            const netProfit = r.paid_amount - mat - payroll;
             const ownerProfit = netProfit - fundsAlloc;
             return (
               <Card key={r.id}>
                 <CardContent className="grid grid-cols-2 gap-2 pt-4 text-sm sm:grid-cols-6">
-                  <div className="col-span-2 sm:col-span-1"><p className="text-xs text-muted-foreground">{r.name}</p><p className="font-medium text-navy-900">{formatTenge(r.total_cost)}</p></div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <p className="text-xs text-muted-foreground">{r.name}</p>
+                    <p className="font-medium text-navy-900">{formatTenge(r.total_cost)}</p>
+                    <p className="text-xs text-muted-foreground">оплачено {formatTenge(r.paid_amount)}</p>
+                  </div>
                   <div><p className="text-xs text-muted-foreground">Материалы</p><p>{formatTenge(mat)}</p></div>
                   <div><p className="text-xs text-muted-foreground">Зарплаты</p><p>{formatTenge(payroll)}</p></div>
                   <div><p className="text-xs text-muted-foreground">Фонды</p><p>{formatTenge(fundsAlloc)}</p></div>
