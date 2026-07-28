@@ -19,23 +19,6 @@ export interface Order {
   finished_at: string | null;
 }
 
-export interface CalculatorSettings {
-  id: string;
-  sign_type_prices: Record<string, number>; // per m
-  coefficients: Record<string, number>;
-  gifts: string[];
-  kp_text: string;
-  offer_valid_hours: number;
-  updated_at: string;
-}
-
-export interface CalculatorInput {
-  signType: string;
-  widthM: number;
-  heightCm: number;
-  backlight: boolean;
-}
-
 // ---------------------------------------------------------------------
 // ERP: клиенты, типы изделий, заявки, позиции работ
 // ---------------------------------------------------------------------
