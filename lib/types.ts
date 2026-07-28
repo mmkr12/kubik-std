@@ -38,92 +38,6 @@ export interface ClientTotals extends Client {
   last_request_at: string | null;
 }
 
-export type InstallMode = 'included' | 'complexity' | 'manual';
-
-export interface ProductTypeNorm {
-  max_area_m2: number | null;
-  manufacture_hours_min: number;
-  manufacture_hours_max: number;
-  install_hours_min: number | null;
-  install_hours_max: number | null;
-}
-
-export interface ProductCategory {
-  id: string;
-  key: string;
-  name: string;
-  description: string | null;
-  sort_order: number;
-  active: boolean;
-}
-
-export interface SheetTier {
-  label: string;
-  fraction: number;
-  price: number;
-}
-
-export interface SheetMaterialPrice {
-  id: string;
-  material_key: 'composite' | 'pvc';
-  fraction: number;
-  label: string;
-  width_cm: number;
-  height_cm: number;
-  base_cost: number;
-  markup_multiplier: number;
-  sort_order: number;
-}
-
-export interface Font {
-  id: string;
-  key: string;
-  name: string;
-  category: 'thin' | 'bold' | 'script';
-  css_family: string;
-  sort_order: number;
-  active: boolean;
-}
-
-export interface LightSignagePricing {
-  backing: { figured_shape_multiplier: number };
-  led: { modules_price_per_m2: number; modules_fund_pct: number; tape_price_per_m2: number; tape_fund_pct: number };
-  psu: { ip54_price: number; ip67_price: number };
-  delivery: { taraz: number; shymkent: number; almaty: number; other_individual_estimate: number };
-  letters: {
-    price_per_cm_base: number;
-    fund_per_cm: number;
-    type_multipliers: Record<'full' | 'front' | 'side' | 'front_and_side' | 'back' | 'nonstandard', number>;
-    gold_silver_multiplier: number;
-    frame: { size_20x20_price_per_m: number; size_40x20_price_per_m: number; frame_fund_per_m: number };
-  };
-  lightbox: {
-    assembly_simple: number;
-    assembly_complex: number;
-    min_price_simple: number;
-    min_price_complex: number;
-    application: { uv_print: number; oracal_cut: number; acrylic_cut: number };
-  };
-}
-
-export interface ProductType {
-  id: string;
-  category_id: string | null;
-  key: string;
-  name: string;
-  unit: 'm2' | 'pcs';
-  price_per_unit: number;
-  norms: ProductTypeNorm[];
-  install_mode: InstallMode;
-  schedule_days: string[];
-  needs_review: boolean;
-  active: boolean;
-  sort_order: number;
-  sheet_width_m: number | null;
-  sheet_height_m: number | null;
-  sheet_tiers: SheetTier[];
-}
-
 export type InstallComplexity = 'light' | 'medium' | 'medium_large' | 'hard';
 export type InstallCity = 'taraz' | 'shymkent' | 'almaty';
 
@@ -214,21 +128,6 @@ export interface EmployeeRole {
   role?: Role;
 }
 
-export interface OperationTemplate {
-  id: string;
-  product_type_id: string;
-  key: string;
-  name: string;
-  role_id: string | null;
-  default_employee_id: string | null;
-  cost: number;
-  norm_hours: number;
-  required: boolean;
-  allows_parallel: boolean;
-  depends_on_keys: string[];
-  sort_order: number;
-}
-
 export type OperationStatus = 'locked' | 'available' | 'in_progress' | 'done';
 
 export interface OrderOperation {
@@ -292,14 +191,6 @@ export interface Material {
   sort_order: number;
 }
 
-export interface ProductTypeMaterial {
-  id: string;
-  product_type_id: string;
-  material_id: string;
-  quantity_per_unit: number;
-  material?: Material;
-}
-
 export interface ProcurementChecklist {
   id: string;
   week_start: string;
@@ -351,18 +242,6 @@ export interface RequestMaterial {
   unit_cost: number;
   total_cost: number;
   material?: Material;
-}
-
-export type FieldType = 'text' | 'select' | 'number' | 'boolean';
-
-export interface ProductTypeField {
-  id: string;
-  product_type_id: string;
-  key: string;
-  label: string;
-  field_type: FieldType;
-  options: string[];
-  sort_order: number;
 }
 
 export interface FundTransaction {
