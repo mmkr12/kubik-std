@@ -112,11 +112,17 @@ export function computeQueuePlacement(requests: DispatchableRequest[], today: Da
 
   for (const r of requests) {
     if (r.status !== 'in_production') continue;
+    // Дата "на якоре" — это либо production_day (уже посчитан диспетчером
+    // раньше), либо install_date, если заявка была заведена/датирована ещё
+    // до появления диспетчера (старый ручной поток). Без этого фолбэка
+    // такие заявки считались бы "новыми" при каждом запуске и алгоритм
+    // молча переставлял бы им уже назначенную дату.
+    const anchorDate = r.production_day ?? r.install_date;
     if (r.manual_override && r.install_date) {
       pinned.push(r);
-    } else if (r.production_day && toISODate(startOfWeek(new Date(r.production_day))) < currentWeekStart) {
+    } else if (anchorDate && toISODate(startOfWeek(new Date(anchorDate))) < currentWeekStart) {
       carryover.push(r);
-    } else if (r.production_day) {
+    } else if (anchorDate) {
       existing.push(r);
     } else {
       fresh.push(r);
@@ -146,8 +152,9 @@ export function computeQueuePlacement(requests: DispatchableRequest[], today: Da
     pushPlacement(r.id, toDate(r.install_date as string), 'pinned_manual');
   }
   for (const r of existing) {
-    bump(r.production_day as string);
-    pushPlacement(r.id, toDate(r.production_day as string), 'existing');
+    const anchorDate = (r.production_day ?? r.install_date) as string;
+    bump(anchorDate);
+    pushPlacement(r.id, toDate(anchorDate), 'existing');
   }
 
   const queue = [...carryover, ...fresh];
