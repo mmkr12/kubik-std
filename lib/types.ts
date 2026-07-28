@@ -162,6 +162,11 @@ export interface ProductionSettings {
   updated_at: string;
 }
 
+export interface StagePayRate {
+  stage_key: string;
+  amount: number;
+}
+
 export interface EmployeeCompetency {
   id: string;
   employee_id: string;
