@@ -6,6 +6,8 @@ import { Ruler, Factory, History, Settings, LogOut, Users, UserCog, ShieldCheck,
 import { Logo } from '@/components/logo';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
+import { useAdminAccess } from '@/components/admin-access-provider';
+import { isAdminPathAllowed } from '@/lib/admin-access';
 
 const NAV = [
   { href: '/admin/requests', label: 'Заявки', icon: Ruler },
@@ -25,6 +27,8 @@ const NAV = [
 export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { level } = useAdminAccess();
+  const visibleNav = NAV.filter((item) => isAdminPathAllowed(level, item.href));
 
   async function handleLogout() {
     const supabase = createClient();
@@ -40,7 +44,7 @@ export function AdminSidebar() {
           <Logo />
         </Link>
         <nav className="space-y-1">
-          {NAV.map((item) => {
+          {visibleNav.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
               <Link
