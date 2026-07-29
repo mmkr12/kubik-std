@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatDate } from '@/lib/utils';
+import { reportSupabaseError } from '@/lib/report-error';
 import type { CorporateEvent, MondayChecklistItem } from '@/lib/types';
 
 function startOfWeek(d = new Date()) {
@@ -78,16 +79,19 @@ export function RegulationsBoard() {
     const isDone = doneItemIds.has(itemId);
     const { data: existing } = await supabase.from('monday_checklist_run_items').select('id').eq('run_id', runId).eq('item_id', itemId).maybeSingle();
     if (existing) {
-      await supabase.from('monday_checklist_run_items').update({ done: !isDone, done_at: !isDone ? new Date().toISOString() : null }).eq('id', existing.id);
+      const { error } = await supabase.from('monday_checklist_run_items').update({ done: !isDone, done_at: !isDone ? new Date().toISOString() : null }).eq('id', existing.id);
+      if (reportSupabaseError('Не удалось сохранить отметку', error)) return;
     } else {
-      await supabase.from('monday_checklist_run_items').insert({ run_id: runId, item_id: itemId, done: true, done_at: new Date().toISOString() });
+      const { error } = await supabase.from('monday_checklist_run_items').insert({ run_id: runId, item_id: itemId, done: true, done_at: new Date().toISOString() });
+      if (reportSupabaseError('Не удалось сохранить отметку', error)) return;
     }
     loadAll();
   }
 
   async function handleAddEvent() {
     if (!eventTitle || !eventDate) return;
-    await supabase.from('corporate_events').insert({ title: eventTitle, event_date: eventDate });
+    const { error } = await supabase.from('corporate_events').insert({ title: eventTitle, event_date: eventDate });
+    if (reportSupabaseError('Не удалось сохранить событие', error)) return;
     setEventTitle('');
     setEventDate('');
     setShowAddEvent(false);

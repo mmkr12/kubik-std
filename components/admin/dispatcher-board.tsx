@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/lib/utils';
+import { reportSupabaseError } from '@/lib/report-error';
 import {
   STAGE_DEFS,
   toISODate,
@@ -201,7 +202,8 @@ export function DispatcherBoard() {
           install_date: p.installDay,
         };
         if (p.source === 'carryover') update.manual_override = false;
-        await supabase.from('requests').update(update).eq('id', p.requestId);
+        const { error } = await supabase.from('requests').update(update).eq('id', p.requestId);
+        if (reportSupabaseError('Не удалось сохранить дату для заявки', error)) return;
       }
 
       // 2. Создаём цепочку операций для заявок, у которых её ещё нет.
@@ -209,7 +211,8 @@ export function DispatcherBoard() {
       const toCreate = requests.filter((r) => !requestIdsWithOps.has(r.id));
       for (const r of toCreate) {
         const rows = buildOperationsForRequest({ id: r.id, fulfillment_mode: r.fulfillment_mode });
-        await supabase.from('order_operations').insert(rows);
+        const { error } = await supabase.from('order_operations').insert(rows);
+        if (reportSupabaseError('Не удалось создать цепочку этапов', error)) return;
       }
 
       // 3. Перезагружаем и назначаем сотрудников на сегодняшние доступные операции.
@@ -224,7 +227,8 @@ export function DispatcherBoard() {
     setUpdating(true);
     try {
       for (const [operationId, employeeId] of assignmentResult.assignments) {
-        await supabase.from('order_operations').update({ assigned_employee_id: employeeId }).eq('id', operationId);
+        const { error } = await supabase.from('order_operations').update({ assigned_employee_id: employeeId }).eq('id', operationId);
+        if (reportSupabaseError('Не удалось сохранить назначение', error)) return;
       }
       await loadAll();
     } finally {

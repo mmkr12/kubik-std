@@ -12,6 +12,7 @@ import { MainCalculator } from '@/components/main-calculator';
 import type { LightLettersDraft } from '@/components/calculators/light-letters-on-frame-calculator';
 import type { ERPRequest, OrderItem, Payment, RequestMaterial, Material } from '@/lib/types';
 import { computeQueuePlacement, type DispatchableRequest } from '@/lib/dispatcher';
+import { reportSupabaseError } from '@/lib/report-error';
 
 // Общий «конструктор заказа» — используется и при первом создании заявки
 // («Замер не требуется»), и при редактировании уже существующего заказа.
@@ -49,7 +50,7 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
   }, [requestId]);
 
   async function handleAddItem(draft: LightLettersDraft) {
-    await supabase.from('order_items').insert({
+    const { error } = await supabase.from('order_items').insert({
       request_id: requestId,
       product_type_id: null,
       params: draft.input,
@@ -61,13 +62,15 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
       install_complexity: draft.input.installMode === 'install' ? draft.input.complexity : null,
       tech_spec: { type: 'light_letters_on_frame', ...draft.result },
     });
+    if (reportSupabaseError('Не удалось добавить позицию', error)) return;
     setShowForm(false);
     loadAll();
     onChanged();
   }
 
   async function handleRemoveItem(id: string) {
-    await supabase.from('order_items').delete().eq('id', id);
+    const { error } = await supabase.from('order_items').delete().eq('id', id);
+    if (reportSupabaseError('Не удалось удалить позицию', error)) return;
     loadAll();
     onChanged();
   }
@@ -83,10 +86,7 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
         .from('requests')
         .select('id, created_at, status, manual_override, install_date, production_day')
         .eq('status', 'in_production');
-      if (error) {
-        console.error('handleSuggestDate: не удалось загрузить очередь', error);
-        return;
-      }
+      if (reportSupabaseError('Не удалось загрузить очередь', error)) return;
       const others = ((allReqs as DispatchableRequest[]) ?? []).filter((r) => r.id !== requestId);
       const thisAsFresh: DispatchableRequest = {
         id: requestId,
@@ -103,10 +103,7 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
         .from('requests')
         .update({ install_date: mine.installDay, recommended_install_date: mine.installDay, production_day: mine.productionDay })
         .eq('id', requestId);
-      if (updError) {
-        console.error('handleSuggestDate: не удалось сохранить дату', updError);
-        return;
-      }
+      if (reportSupabaseError('Не удалось сохранить дату', updError)) return;
       setInstallDate(mine.installDay);
       onChanged();
     } finally {
@@ -116,30 +113,28 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
 
   async function handleInstallDateBlur() {
     const { error } = await supabase.from('requests').update({ install_date: installDate || null }).eq('id', requestId);
-    if (error) console.error('handleInstallDateBlur: не удалось сохранить дату', error);
+    if (reportSupabaseError('Не удалось сохранить дату', error)) return;
     onChanged();
   }
 
   async function handleAddPayment(amount: number, note: string) {
     if (!amount) return;
     const { error } = await supabase.from('payments').insert({ request_id: requestId, amount, note: note || null });
-    if (error) {
-      console.error('handleAddPayment: не удалось сохранить платёж', error);
-      window.alert('Не удалось сохранить платёж: ' + error.message);
-      return;
-    }
+    if (reportSupabaseError('Не удалось сохранить платёж', error)) return;
     loadAll();
     onChanged();
   }
 
   async function handleAddMaterial(materialId: string, quantity: number, unitCost: number) {
     if (!materialId || !quantity) return;
-    await supabase.from('request_materials').insert({ request_id: requestId, material_id: materialId, quantity, unit_cost: unitCost });
+    const { error } = await supabase.from('request_materials').insert({ request_id: requestId, material_id: materialId, quantity, unit_cost: unitCost });
+    if (reportSupabaseError('Не удалось добавить материал', error)) return;
     loadAll();
   }
 
   async function handleRemoveMaterial(id: string) {
-    await supabase.from('request_materials').delete().eq('id', id);
+    const { error } = await supabase.from('request_materials').delete().eq('id', id);
+    if (reportSupabaseError('Не удалось удалить материал', error)) return;
     loadAll();
   }
 
@@ -197,12 +192,13 @@ function ItemRow({ item, onRemove, onChanged }: { item: OrderItem; onRemove: () 
 
   async function savePrice() {
     const diff = finalCost - baseCost;
-    await supabase.from('order_items').update({
+    const { error } = await supabase.from('order_items').update({
       final_cost: finalCost,
       adjustment_amount: Math.abs(diff),
       adjustment_type: diff === 0 ? null : diff > 0 ? 'markup' : 'discount',
       adjustment_comment: adjComment || null,
     }).eq('id', item.id);
+    if (reportSupabaseError('Не удалось сохранить цену', error)) return;
     setEditingPrice(false);
     onChanged();
   }

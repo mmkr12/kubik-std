@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDate } from '@/lib/utils';
 import { OrderWorkspace } from '@/components/admin/order-workspace';
+import { reportSupabaseError } from '@/lib/report-error';
 import type { ERPRequest, EventLogRow } from '@/lib/types';
 
 export function RequestDetailDialog({
@@ -68,7 +69,8 @@ export function RequestDetailDialog({
   async function handleConvertToOrder() {
     setSaving(true);
     try {
-      await supabase.from('requests').update({ status: 'in_production', started_production_at: new Date().toISOString() }).eq('id', request.id);
+      const { error } = await supabase.from('requests').update({ status: 'in_production', started_production_at: new Date().toISOString() }).eq('id', request.id);
+      if (reportSupabaseError('Не удалось оформить заказ', error)) return;
       setStatus('in_production');
       onChanged();
     } finally {
@@ -79,7 +81,8 @@ export function RequestDetailDialog({
   async function handleSaveContact() {
     setSaving(true);
     try {
-      await supabase.from('requests').update({ name, phone, address: address || null, comment: comment || null }).eq('id', request.id);
+      const { error } = await supabase.from('requests').update({ name, phone, address: address || null, comment: comment || null }).eq('id', request.id);
+      if (reportSupabaseError('Не удалось сохранить контакты', error)) return;
       onChanged();
     } finally {
       setSaving(false);
@@ -89,13 +92,15 @@ export function RequestDetailDialog({
   async function handleToggleUrgent() {
     const next = !urgent;
     setUrgent(next);
-    await supabase.from('requests').update({ urgent: next }).eq('id', request.id);
+    const { error } = await supabase.from('requests').update({ urgent: next }).eq('id', request.id);
+    if (reportSupabaseError('Не удалось сохранить отметку', error)) return;
     onChanged();
   }
 
   async function handleFulfillmentModeChange(mode: typeof fulfillmentMode) {
     setFulfillmentMode(mode);
-    await supabase.from('requests').update({ fulfillment_mode: mode }).eq('id', request.id);
+    const { error } = await supabase.from('requests').update({ fulfillment_mode: mode }).eq('id', request.id);
+    if (reportSupabaseError('Не удалось сохранить способ отгрузки', error)) return;
     onChanged();
   }
 

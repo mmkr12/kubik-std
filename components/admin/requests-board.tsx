@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CreateRequestDialog } from '@/components/admin/create-request-dialog';
 import { RequestDetailDialog } from '@/components/admin/request-detail-dialog';
+import { reportSupabaseError } from '@/lib/report-error';
 import { formatDate } from '@/lib/utils';
 import type { ERPRequest } from '@/lib/types';
 
@@ -38,7 +39,8 @@ export function RequestsBoard() {
   }, []);
 
   async function handleLose(id: string) {
-    await supabase.from('requests').update({ status: 'lost' }).eq('id', id);
+    const { error } = await supabase.from('requests').update({ status: 'lost' }).eq('id', id);
+    if (reportSupabaseError('Не удалось сохранить статус', error)) return;
     loadRequests();
   }
 

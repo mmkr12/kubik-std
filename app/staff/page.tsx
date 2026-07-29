@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { formatTenge, formatDate } from '@/lib/utils';
+import { reportSupabaseError } from '@/lib/report-error';
 import type { Employee, OrderOperation, PayrollAccrual } from '@/lib/types';
 
 export default function StaffHomePage() {
@@ -52,7 +53,8 @@ export default function StaffHomePage() {
   }, []);
 
   async function startOperation(id: string) {
-    await supabase.from('order_operations').update({ status: 'in_progress', started_at: new Date().toISOString() }).eq('id', id);
+    const { error } = await supabase.from('order_operations').update({ status: 'in_progress', started_at: new Date().toISOString() }).eq('id', id);
+    if (reportSupabaseError('Не удалось начать операцию', error)) return;
     loadAll();
   }
 
@@ -75,7 +77,7 @@ export default function StaffHomePage() {
           // пропускаем неудачную загрузку, остальное сохраняем
         }
       }
-      await supabase
+      const { error } = await supabase
         .from('order_operations')
         .update({
           status: 'done',
@@ -84,6 +86,7 @@ export default function StaffHomePage() {
           completion_comment: completionComment || null,
         })
         .eq('id', completing.id);
+      if (reportSupabaseError('Не удалось завершить операцию', error)) return;
       setCompleting(null);
       loadAll();
     } finally {

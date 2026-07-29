@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatTenge } from '@/lib/utils';
+import { reportSupabaseError } from '@/lib/report-error';
 import type { CompanyFunds, ERPRequest, FundTransaction, PayrollAccrual, RequestMaterial } from '@/lib/types';
 
 const FUND_LABELS: Record<string, string> = { payroll: 'Зарплата', mandatory: 'Обязательные расходы', development: 'Развитие' };
@@ -48,11 +49,12 @@ export function FinancesBoard() {
     if (!funds) return;
     setSaving(true);
     try {
-      await supabase.from('company_funds').update({
+      const { error } = await supabase.from('company_funds').update({
         payroll_fund_pct: funds.payroll_fund_pct,
         mandatory_expenses_fund_pct: funds.mandatory_expenses_fund_pct,
         development_fund_pct: funds.development_fund_pct,
       }).eq('id', 1);
+      if (reportSupabaseError('Не удалось сохранить проценты', error)) return;
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {

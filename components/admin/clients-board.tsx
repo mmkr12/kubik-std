@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ClientEditDialog } from '@/components/admin/client-edit-dialog';
+import { reportSupabaseError } from '@/lib/report-error';
 import { formatTenge, formatDate } from '@/lib/utils';
 import type { ClientTotals, ClientComment, ERPRequest } from '@/lib/types';
 
@@ -79,24 +80,28 @@ export function ClientsBoard() {
   async function dismissInactivity(clientId: string) {
     const until = new Date();
     until.setMonth(until.getMonth() + 3);
-    await supabase.from('clients').update({ reminder_dismissed_until: until.toISOString().slice(0, 10) }).eq('id', clientId);
+    const { error } = await supabase.from('clients').update({ reminder_dismissed_until: until.toISOString().slice(0, 10) }).eq('id', clientId);
+    if (reportSupabaseError('Не удалось сохранить отметку', error)) return;
     loadAll(query);
   }
 
   async function dismissWarranty(requestId: string) {
-    await supabase.from('requests').update({ warranty_notice_dismissed: true }).eq('id', requestId);
+    const { error } = await supabase.from('requests').update({ warranty_notice_dismissed: true }).eq('id', requestId);
+    if (reportSupabaseError('Не удалось сохранить отметку', error)) return;
     loadAll(query);
   }
 
   async function addComment(clientId: string) {
     if (!newComment.trim()) return;
-    await supabase.from('client_comments').insert({ client_id: clientId, text: newComment });
+    const { error } = await supabase.from('client_comments').insert({ client_id: clientId, text: newComment });
+    if (reportSupabaseError('Не удалось сохранить комментарий', error)) return;
     setNewComment('');
     loadAll(query);
   }
 
   async function deleteComment(id: string) {
-    await supabase.from('client_comments').delete().eq('id', id);
+    const { error } = await supabase.from('client_comments').delete().eq('id', id);
+    if (reportSupabaseError('Не удалось удалить комментарий', error)) return;
     loadAll(query);
   }
 

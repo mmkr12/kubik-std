@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { reportSupabaseError } from '@/lib/report-error';
 import type { ClientTotals } from '@/lib/types';
 
 export function ClientEditDialog({
@@ -28,7 +29,8 @@ export function ClientEditDialog({
     if (!phone.trim()) return;
     setSaving(true);
     try {
-      await supabase.from('clients').update({ name: name || null, phone: phone.trim() }).eq('id', client.id);
+      const { error } = await supabase.from('clients').update({ name: name || null, phone: phone.trim() }).eq('id', client.id);
+      if (reportSupabaseError('Не удалось сохранить клиента', error)) return;
       setOpen(false);
       onChanged();
     } finally {

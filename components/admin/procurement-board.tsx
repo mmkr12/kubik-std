@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { reportSupabaseError } from '@/lib/report-error';
 import type { Material, ProcurementChecklist, ProcurementChecklistItem } from '@/lib/types';
 
 function startOfWeek(d = new Date()) {
@@ -54,15 +55,17 @@ export function ProcurementBoard() {
   async function setQuantity(materialId: string, quantity: number) {
     if (!checklist) return;
     const existing = items.find((i) => i.material_id === materialId);
+    let error = null;
     if (existing) {
       if (quantity <= 0) {
-        await supabase.from('procurement_checklist_items').delete().eq('id', existing.id);
+        ({ error } = await supabase.from('procurement_checklist_items').delete().eq('id', existing.id));
       } else {
-        await supabase.from('procurement_checklist_items').update({ quantity_needed: quantity }).eq('id', existing.id);
+        ({ error } = await supabase.from('procurement_checklist_items').update({ quantity_needed: quantity }).eq('id', existing.id));
       }
     } else if (quantity > 0) {
-      await supabase.from('procurement_checklist_items').insert({ checklist_id: checklist.id, material_id: materialId, quantity_needed: quantity });
+      ({ error } = await supabase.from('procurement_checklist_items').insert({ checklist_id: checklist.id, material_id: materialId, quantity_needed: quantity }));
     }
+    if (reportSupabaseError('Не удалось сохранить количество', error)) return;
     loadAll();
   }
 

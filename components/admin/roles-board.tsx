@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { STAGE_DEFS } from '@/lib/dispatcher';
+import { reportSupabaseError } from '@/lib/report-error';
 import type { Role, StagePayRate } from '@/lib/types';
 
 const METHOD_LABELS: Record<Role['payroll_method'], string> = {
@@ -48,7 +49,7 @@ export function RolesBoard() {
   async function handleSave() {
     setSaving(true);
     try {
-      await Promise.all(
+      const results = await Promise.all(
         roles.map((r) =>
           supabase
             .from('roles')
@@ -56,6 +57,7 @@ export function RolesBoard() {
             .eq('id', r.id)
         )
       );
+      reportSupabaseError('Не удалось сохранить роли', results.find((r) => r.error)?.error ?? null);
     } finally {
       setSaving(false);
     }
@@ -68,9 +70,10 @@ export function RolesBoard() {
   async function handleSaveStageRates() {
     setSavingStages(true);
     try {
-      await Promise.all(
+      const results = await Promise.all(
         stageRates.map((r) => supabase.from('stage_pay_rates').update({ amount: r.amount }).eq('stage_key', r.stage_key))
       );
+      if (reportSupabaseError('Не удалось сохранить ставки', results.find((r) => r.error)?.error ?? null)) return;
       setStagesSaved(true);
       setTimeout(() => setStagesSaved(false), 2000);
     } finally {

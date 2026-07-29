@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatTenge, formatDate } from '@/lib/utils';
+import { reportSupabaseError } from '@/lib/report-error';
 import type { Employee, PayrollAccrual } from '@/lib/types';
 
 export function PayrollBoard() {
@@ -40,7 +41,7 @@ export function PayrollBoard() {
       const periodMonth = new Date();
       periodMonth.setDate(1);
 
-      const { data: payout } = await supabase
+      const { data: payout, error: payoutError } = await supabase
         .from('payroll_payouts')
         .insert({
           employee_id: employeeId,
@@ -50,12 +51,14 @@ export function PayrollBoard() {
         })
         .select('id')
         .single();
+      if (reportSupabaseError('Не удалось создать выплату', payoutError)) return;
 
       if (payout) {
-        await supabase
+        const { error } = await supabase
           .from('payroll_accruals')
           .update({ status: 'paid', paid_at: new Date().toISOString(), payout_id: payout.id })
           .in('id', pending.map((p) => p.id));
+        if (reportSupabaseError('Выплата создана, но не удалось отметить начисления', error)) return;
       }
       loadAll();
     } finally {

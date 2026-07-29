@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Check } from 'lucide-react';
+import { reportSupabaseError } from '@/lib/report-error';
 
 export function MeasurementRequestDialog({ trigger }: { trigger: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -33,8 +34,9 @@ export function MeasurementRequestDialog({ trigger }: { trigger: React.ReactNode
     setSaving(true);
     try {
       const clientId = crypto.randomUUID();
-      await supabase.from('clients').insert({ id: clientId, phone, name });
-      await supabase.from('requests').insert({
+      const { error: clientError } = await supabase.from('clients').insert({ id: clientId, phone, name });
+      if (reportSupabaseError('Не удалось отправить заявку', clientError)) return;
+      const { error } = await supabase.from('requests').insert({
         client_id: clientId,
         status: 'measurement',
         needs_measurement: true,
@@ -42,6 +44,7 @@ export function MeasurementRequestDialog({ trigger }: { trigger: React.ReactNode
         phone,
         address: address || null,
       });
+      if (reportSupabaseError('Не удалось отправить заявку', error)) return;
       setDone(true);
     } finally {
       setSaving(false);

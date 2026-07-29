@@ -1,24 +1,6 @@
 import type { FulfillmentMode } from './dispatcher';
 import type { LightLettersPricingConfig } from './light-letters-pricing';
 
-export type OrderStatus = 'measurement' | 'lost' | 'production' | 'done';
-
-export interface Order {
-  id: string;
-  company_name: string;
-  phone: string;
-  address: string | null;
-  comment: string | null;
-  cost: number | null;
-  sketch_url: string | null;
-  install_date: string | null;
-  status: OrderStatus;
-  finished_photo_url: string | null;
-  created_at: string;
-  started_production_at: string | null;
-  finished_at: string | null;
-}
-
 // ---------------------------------------------------------------------
 // ERP: клиенты, типы изделий, заявки, позиции работ
 // ---------------------------------------------------------------------

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { OrderWorkspace } from '@/components/admin/order-workspace';
+import { reportSupabaseError } from '@/lib/report-error';
 
 type Branch = 'choice' | 'measurement' | 'full' | 'items';
 
@@ -53,7 +54,7 @@ export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
         try { sketch_url = await uploadImage('sketches', sketchFile); } catch { /* продолжаем без эскиза */ }
       }
       const client = await findOrCreateClient(measurementForm.phone, measurementForm.name);
-      await supabase.from('requests').insert({
+      const { error } = await supabase.from('requests').insert({
         client_id: client.id,
         status: 'measurement',
         needs_measurement: true,
@@ -64,6 +65,7 @@ export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
         desired_measurement_date: measurementForm.desired_date || null,
         sketch_url,
       });
+      if (reportSupabaseError('Не удалось создать заявку', error)) return;
       handleOpenChange(false);
     } finally {
       setSaving(false);
@@ -79,7 +81,7 @@ export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
         try { sketch_url = await uploadImage('sketches', sketchFile); } catch { /* продолжаем без эскиза */ }
       }
       const client = await findOrCreateClient(fullForm.phone, fullForm.name);
-      const { data: created } = await supabase
+      const { data: created, error } = await supabase
         .from('requests')
         .insert({
           client_id: client.id,
@@ -96,6 +98,7 @@ export function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
         })
         .select('id')
         .single();
+      if (reportSupabaseError('Не удалось создать заказ', error)) return;
 
       // Никакого второго окна — продолжаем в этом же диалоге, сразу
       // с калькулятором и всеми блоками заказа.

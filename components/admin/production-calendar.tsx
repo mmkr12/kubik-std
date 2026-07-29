@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { RequestDetailDialog } from '@/components/admin/request-detail-dialog';
+import { reportSupabaseError } from '@/lib/report-error';
 import { formatTenge, formatDate } from '@/lib/utils';
 import type { ERPRequest } from '@/lib/types';
 
@@ -56,10 +57,11 @@ export function ProductionCalendar() {
     setSaving(true);
     try {
       const finished_photo_url = await uploadImage('finished-photos', photoFile);
-      await supabase
+      const { error } = await supabase
         .from('requests')
         .update({ status: 'done', finished_photo_url, finished_at: new Date().toISOString() })
         .eq('id', activeRequest.id);
+      if (reportSupabaseError('Не удалось закрыть заказ', error)) return;
       setActiveRequest(null);
       setPhotoFile(null);
       loadRequests();

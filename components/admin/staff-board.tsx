@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { reportSupabaseError } from '@/lib/report-error';
 import type { Employee, EmployeeRole, Role } from '@/lib/types';
 
 export function StaffBoard() {
@@ -41,7 +42,8 @@ export function StaffBoard() {
 
   async function handleAdd() {
     if (!fullName.trim()) return;
-    await supabase.from('employees').insert({ full_name: fullName, phone: phone || null });
+    const { error } = await supabase.from('employees').insert({ full_name: fullName, phone: phone || null });
+    if (reportSupabaseError('Не удалось добавить сотрудника', error)) return;
     setFullName('');
     setPhone('');
     setShowAdd(false);
@@ -49,16 +51,16 @@ export function StaffBoard() {
   }
 
   async function handleStatusChange(id: string, status: Employee['status']) {
-    await supabase.from('employees').update({ status }).eq('id', id);
+    const { error } = await supabase.from('employees').update({ status }).eq('id', id);
+    if (reportSupabaseError('Не удалось сохранить статус', error)) return;
     loadAll();
   }
 
   async function toggleRole(employeeId: string, roleId: string, currentlyAssigned: EmployeeRole | undefined) {
-    if (currentlyAssigned) {
-      await supabase.from('employee_roles').update({ unassigned_at: new Date().toISOString() }).eq('id', currentlyAssigned.id);
-    } else {
-      await supabase.from('employee_roles').insert({ employee_id: employeeId, role_id: roleId });
-    }
+    const { error } = currentlyAssigned
+      ? await supabase.from('employee_roles').update({ unassigned_at: new Date().toISOString() }).eq('id', currentlyAssigned.id)
+      : await supabase.from('employee_roles').insert({ employee_id: employeeId, role_id: roleId });
+    if (reportSupabaseError('Не удалось сохранить роль', error)) return;
     loadAll();
   }
 
