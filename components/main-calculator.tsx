@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { TrustBadges } from '@/components/calculators/ui/trust-badges';
 import { LightLettersOnFrameCalculator, type LightLettersDraft } from '@/components/calculators/light-letters-on-frame-calculator';
+import { LightLettersOnBackingCalculator } from '@/components/calculators/light-letters-on-backing-calculator';
 
 const CATEGORIES = [
   { key: 'light_signage', name: 'Световые вывески', ready: true },
@@ -14,7 +15,7 @@ const CATEGORIES = [
 
 const TYPES = [
   { key: 'on_frame', name: 'Световые буквы\nна каркасе', icon: '/calc/kategorii/na_karkase.png', ready: true },
-  { key: 'on_backing', name: 'Световые буквы\nна подложке', icon: '/calc/kategorii/na_podlojke.png', ready: false },
+  { key: 'on_backing', name: 'Световые буквы\nна подложке', icon: '/calc/kategorii/na_podlojke.png', ready: true },
   { key: 'acrylic_box', name: 'Световой короб\nиз акрила', icon: '/calc/kategorii/iz_akrila.png', ready: false },
   { key: 'composite_box', name: 'Световой короб\nиз композита', icon: '/calc/kategorii/iz_kompozita.png', ready: false },
   { key: 'individual', name: 'Проект\nиндивидуальный', icon: '/calc/kategorii/individualnyi.png', ready: false },
@@ -99,6 +100,8 @@ export function MainCalculator({
             <div className="rounded-xl border border-dashed border-border bg-mist-50 p-10 text-center text-muted-foreground">
               В разработке — скоро здесь появится калькулятор.
             </div>
+          ) : typeKey === 'on_backing' ? (
+            <LightLettersOnBackingCalculator mode={mode} onAdd={onAdd} onCancel={onCancel} />
           ) : (
             <LightLettersOnFrameCalculator mode={mode} onAdd={onAdd} onCancel={onCancel} />
           )}

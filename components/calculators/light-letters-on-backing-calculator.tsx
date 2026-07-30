@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Ruler, Palette, Lightbulb, Truck, Bookmark } from 'lucide-react';
+import { Ruler, Palette, Lightbulb, Truck, Bookmark, Layers, Lightbulb as HintIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import Image from 'next/image';
 import { Label } from '@/components/ui/label';
@@ -10,20 +10,20 @@ import { formatTenge } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import {
   calculate, isTypeAvailable, getDiapason, LETTER_TYPE_LABELS, TYPE_THUMBS, DEFAULT_PRICING_CONFIG,
-  type CalculatorInput, type LetterType, type LedType, type LedTemp, type PsuType, type FrameType,
+  type CalculatorInput, type LetterType, type LedType, type LedTemp, type PsuType,
   type InstallCity, type Complexity, type DeliveryOption, type LightLettersPricingConfig, type LightLettersDraft,
 } from '@/lib/light-letters-pricing';
+import { findBackingHints } from '@/lib/backing-pricing';
 import { StepperInput } from '@/components/calculators/ui/stepper-input';
 import { CharCounterInput } from '@/components/calculators/ui/char-counter-input';
 import { PriceBreakdown, type PriceLine } from '@/components/calculators/ui/price-breakdown';
 import { CalculatorShell } from '@/components/calculators/ui/calculator-shell';
 import { LightLettersPreview } from '@/components/calculators/light-letters-preview';
+import { BackingSheetVisualization } from '@/components/calculators/backing-sheet-visualization';
 
 const LETTER_TYPES: LetterType[] = ['full_combo', 'full_single', 'front', 'side', 'back', 'back_and_front'];
 
-export type { LightLettersDraft };
-
-export function LightLettersOnFrameCalculator({
+export function LightLettersOnBackingCalculator({
   mode,
   onAdd,
   onCancel,
@@ -42,7 +42,8 @@ export function LightLettersOnFrameCalculator({
   const [ledType, setLedType] = useState<LedType>('none');
   const [ledTemp, setLedTemp] = useState<LedTemp>('neutral');
   const [psuType, setPsuType] = useState<PsuType>('none');
-  const [frameType, setFrameType] = useState<FrameType>('none');
+  const [backingWidthCm, setBackingWidthCm] = useState(120);
+  const [backingHeightCm, setBackingHeightCm] = useState(80);
   const [installMode, setInstallMode] = useState<'install' | 'delivery' | 'none'>('none');
   const [installCity, setInstallCity] = useState<InstallCity>('taraz');
   const [complexity, setComplexity] = useState<Complexity>('medium');
@@ -52,15 +53,13 @@ export function LightLettersOnFrameCalculator({
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
   const [pricingConfig, setPricingConfig] = useState<LightLettersPricingConfig>(DEFAULT_PRICING_CONFIG);
 
-  // При открытии — проверяем, есть ли ранее сохранённый расчёт в куках.
   useEffect(() => {
-    const match = document.cookie.match(/kubik_calc_letters=([^;]+)/);
+    const match = document.cookie.match(/kubik_calc_backing=([^;]+)/);
     if (match) setHasSavedDraft(true);
   }, []);
 
   // Цены редактируются в /admin/settings — подтягиваем их один раз при
-  // открытии; пока грузится (или если строки ещё нет), считаем по
-  // дефолтным цифрам, чтобы калькулятор не завис пустым.
+  // открытии; пока грузится, считаем по дефолтным цифрам.
   useEffect(() => {
     const supabase = createClient();
     supabase
@@ -73,7 +72,7 @@ export function LightLettersOnFrameCalculator({
   }, []);
 
   function handleRestore() {
-    const match = document.cookie.match(/kubik_calc_letters=([^;]+)/);
+    const match = document.cookie.match(/kubik_calc_backing=([^;]+)/);
     if (!match) return;
     try {
       const saved = JSON.parse(decodeURIComponent(match[1])) as CalculatorInput;
@@ -87,7 +86,8 @@ export function LightLettersOnFrameCalculator({
       setLedType(saved.ledType);
       setLedTemp(saved.ledTemp ?? 'neutral');
       setPsuType(saved.psuType);
-      setFrameType(saved.frameType);
+      setBackingWidthCm(saved.backingWidthCm ?? 120);
+      setBackingHeightCm(saved.backingHeightCm ?? 80);
       setInstallMode(saved.installMode);
       setInstallCity(saved.installCity);
       setComplexity(saved.complexity);
@@ -98,11 +98,6 @@ export function LightLettersOnFrameCalculator({
       // повреждённые куки — просто игнорируем
     }
   }
-
-  // "Без каркаса" — лёгкий монтаж недоступен.
-  useEffect(() => {
-    if (frameType === 'none' && complexity === 'light') setComplexity('medium');
-  }, [frameType, complexity]);
 
   // Золото/серебро — лицевое свечение недоступно.
   useEffect(() => {
@@ -117,36 +112,43 @@ export function LightLettersOnFrameCalculator({
 
   const input: CalculatorInput = {
     mainText, mainHeightMm, depthMm, additionalText, additionalHeightMm,
-    letterType, goldSilver, ledType, ledTemp, psuType, frameType,
+    letterType, goldSilver, ledType, ledTemp, psuType, frameType: 'none',
     installMode, installCity, complexity, deliveryOption, urgent,
+    backingWidthCm, backingHeightCm,
   };
 
   const result = useMemo(() => calculate(input, pricingConfig), [
     mainText, mainHeightMm, depthMm, additionalText, additionalHeightMm,
-    letterType, goldSilver, ledType, ledTemp, psuType, frameType,
-    installMode, installCity, complexity, deliveryOption, urgent, pricingConfig,
+    letterType, goldSilver, ledType, ledTemp, psuType,
+    installMode, installCity, complexity, deliveryOption, urgent,
+    backingWidthCm, backingHeightCm, pricingConfig,
   ]);
+
+  const backingHints = useMemo(
+    () => (result.backingFit ? findBackingHints(backingWidthCm, backingHeightCm, pricingConfig.compositeSheetPrice, result.backingFit) : []),
+    [backingWidthCm, backingHeightCm, pricingConfig.compositeSheetPrice, result.backingFit]
+  );
 
   const priceLines: PriceLine[] = [
     { label: 'Материал', amount: result.material, bold: true },
     { label: 'Изготовление букв', amount: result.letterManufacture, indent: true },
     { label: 'Дизайн букв', amount: result.letterDesign, indent: true },
     { label: 'Освещение', amount: result.lighting, indent: true },
-    { label: 'Изготовление каркаса', amount: result.frame, indent: true },
+    { label: 'Подложка', amount: result.backing, indent: true },
     { label: 'Изготовление', amount: result.production, bold: true },
     { label: installMode === 'delivery' ? 'Доставка' : 'Монтаж/Доставка', amount: result.installDelivery, bold: true },
   ];
   if (result.urgentSurcharge > 0) priceLines.push({ label: 'Доплата за срочность', amount: result.urgentSurcharge, bold: true });
 
   function handleSave() {
-    document.cookie = `kubik_calc_letters=${encodeURIComponent(JSON.stringify(input))}; max-age=2592000; path=/`;
+    document.cookie = `kubik_calc_backing=${encodeURIComponent(JSON.stringify(input))}; max-age=2592000; path=/`;
     setSaved(true);
     setHasSavedDraft(false);
     setTimeout(() => setSaved(false), 2000);
   }
 
   function handleAdd() {
-    onAdd?.({ kind: 'light_letters_on_frame', input, result });
+    onAdd?.({ kind: 'light_letters_on_backing', input, result });
   }
 
   const kpUrl = `/kp?d=${encodeURIComponent(JSON.stringify(input))}`;
@@ -158,9 +160,6 @@ export function LightLettersOnFrameCalculator({
   ];
   if (result.urgentSurcharge > 0) mobilePriceLines.push({ label: 'Доплата за срочность', amount: result.urgentSurcharge });
 
-  // Единый набор секций формы — используется и в мобильной, и в
-  // десктопной раскладке (обе теперь одинаково "всё открыто", без
-  // сворачивания, поэтому смысла держать два разных набора полей нет).
   const formSections = (
     <>
       {hasSavedDraft && (
@@ -216,15 +215,8 @@ export function LightLettersOnFrameCalculator({
         </label>
       </Section>
 
-      <Section icon={Lightbulb} title="Подсветка и каркас">
+      <Section icon={Lightbulb} title="Подсветка">
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label>Каркас</Label>
-            <select value={frameType} onChange={(e) => setFrameType(e.target.value as FrameType)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
-              <option value="none">Без каркаса</option>
-              <option value="with_frame">С каркасом</option>
-            </select>
-          </div>
           <div className="space-y-1">
             <Label>Тип освещения</Label>
             <select value={ledType} onChange={(e) => setLedType(e.target.value as LedType)} className="h-10 w-full rounded-lg border border-border bg-white px-2 text-sm">
@@ -258,6 +250,33 @@ export function LightLettersOnFrameCalculator({
         <p className="text-xs text-muted-foreground">Температура на стоимость не влияет — параметр для изготовления.</p>
       </Section>
 
+      <Section icon={Layers} title="Подложка (композит)">
+        <div className="grid grid-cols-2 gap-3">
+          <StepperInput label="Ширина подложки" unit="см" value={backingWidthCm} onChange={setBackingWidthCm} step={10} min={30} max={720} />
+          <StepperInput label="Высота подложки" unit="см" value={backingHeightCm} onChange={setBackingHeightCm} step={10} min={30} max={240} />
+        </div>
+
+        {result.backingFit ? (
+          <>
+            <BackingSheetVisualization fit={result.backingFit} />
+            {backingHints.length > 0 && (
+              <div className="space-y-1.5">
+                {backingHints.map((h) => (
+                  <div key={h.kind} className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <HintIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{h.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="rounded-lg bg-mist-50 px-3 py-2 text-xs text-muted-foreground">
+            Нестандартный размер (превышает 720×240 см) — считается индивидуально, свяжитесь с менеджером.
+          </p>
+        )}
+      </Section>
+
       <Section icon={Truck} title="Монтаж/Доставка">
         <div className="flex gap-2">
           <button type="button" onClick={() => setInstallMode(installMode === 'install' ? 'none' : 'install')} className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${installMode === 'install' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-border text-navy-700'}`}>
@@ -277,7 +296,7 @@ export function LightLettersOnFrameCalculator({
             </select>
             {installCity === 'taraz' && (
               <select value={complexity} onChange={(e) => setComplexity(e.target.value as Complexity)} className="h-10 rounded-lg border border-border bg-white px-2 text-sm">
-                <option value="light" disabled={frameType === 'none'}>Лёгкий{frameType === 'none' ? ' (недоступно без каркаса)' : ''}</option>
+                <option value="light" disabled>Лёгкий (недоступно без каркаса)</option>
                 <option value="medium">Средний</option>
                 <option value="medium_large">Средний (габарит)</option>
                 <option value="hard">Сложный</option>
@@ -315,7 +334,7 @@ export function LightLettersOnFrameCalculator({
   const gabaritStats = [
     { label: 'Высота', value: `${result.gabarits.heightMm} мм` },
     { label: 'Ширина', value: `${result.gabarits.widthMm} мм` },
-    { label: 'Глубина', value: `${result.gabarits.depthMm} мм` },
+    { label: 'Подложка', value: `${backingWidthCm}×${backingHeightCm} см` },
     { label: 'Площадь', value: `${result.gabarits.volumeM3} м³` },
   ];
 
@@ -358,7 +377,7 @@ export function LightLettersOnFrameCalculator({
       left={formSections}
       right={
         <>
-          <LightLettersPreview mainText={mainText} additionalText={additionalText} goldSilver={goldSilver} hasFrame={frameType !== 'none'} />
+          <LightLettersPreview mainText={mainText} additionalText={additionalText} goldSilver={goldSilver} hasFrame={false} />
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {gabaritStats.map((s) => (
@@ -399,8 +418,6 @@ export function LightLettersOnFrameCalculator({
   );
 }
 
-// Заголовок секции — виден (иконка + название), но без рамки, фона и
-// возможности свернуть: все поля сразу под ним, всегда открыто.
 function Section({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2.5">

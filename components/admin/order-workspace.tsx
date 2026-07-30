@@ -60,7 +60,7 @@ export function OrderWorkspace({ requestId, onChanged }: { requestId: string; on
       install_cost: draft.result.installDelivery,
       install_city: draft.input.installMode === 'install' ? draft.input.installCity : 'taraz',
       install_complexity: draft.input.installMode === 'install' ? draft.input.complexity : null,
-      tech_spec: { type: 'light_letters_on_frame', ...draft.result },
+      tech_spec: { type: draft.kind, ...draft.result },
     });
     if (reportSupabaseError('Не удалось добавить позицию', error)) return;
     setShowForm(false);

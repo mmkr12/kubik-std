@@ -1,3 +1,5 @@
+import { findFittingTier, type BackingFit } from './backing-pricing';
+
 // ============================================================
 // KUBIK.std — «Световые буквы на каркасе»
 // Вся расчётная логика в одном месте, без UI, чтобы формулы
@@ -77,6 +79,9 @@ export interface LightLettersPricingConfig {
   productionPct: number;
   // Срочно: (Изготовление + Монтаж) × множитель
   urgentMultiplier: number;
+  // Подложка (композит) — цена одного листа 120×240см, используется
+  // калькулятором «Световые буквы на подложке» (lib/backing-pricing.ts)
+  compositeSheetPrice: number;
 }
 
 export const DEFAULT_PRICING_CONFIG: LightLettersPricingConfig = {
@@ -113,6 +118,7 @@ export const DEFAULT_PRICING_CONFIG: LightLettersPricingConfig = {
   deliveryPrice: { pickup: 0, taraz: 5000, shymkent: 15000, almaty: 20000 },
   productionPct: 0.2,
   urgentMultiplier: 1.5,
+  compositeSheetPrice: 18000,
 };
 
 export function getDepthPct(depthMm: number, config: LightLettersPricingConfig = DEFAULT_PRICING_CONFIG): number {
@@ -195,6 +201,11 @@ export interface CalculatorInput {
   complexity: Complexity;
   deliveryOption: DeliveryOption;
   urgent: boolean;
+  // Подложка (калькулятор "Световые буквы на подложке") — если оба поля
+  // заданы, calculate() сам подберёт размер по сетке (lib/backing-pricing.ts)
+  // и добавит стоимость листа в material.
+  backingWidthCm?: number;
+  backingHeightCm?: number;
 }
 
 export interface CalculatorResult {
@@ -203,7 +214,9 @@ export interface CalculatorResult {
   letterDesign: number; // "Дизайн букв" (разница от множителя типа + золото/серебро)
   lighting: number; // "Освещение"
   frame: number; // "Изготовление каркаса"
-  material: number; // сумма 4 строк выше
+  backing: number; // "Подложка"
+  backingFit: BackingFit | null; // подробности подбора листа — для визуализации/подсказок
+  material: number; // сумма строк выше
   production: number; // "Изготовление" — наценка сверх себестоимости (config.productionPct)
   installDelivery: number; // "Монтаж / Доставка"
   urgentSurcharge: number; // доплата за срочность (уже включена в install+production при подсчёте total, но показываем отдельно)
@@ -211,7 +224,21 @@ export interface CalculatorResult {
   rows: { main: RowResult; additional: RowResult | null };
 }
 
+// kind различает, каким калькулятором собран черновик — используется
+// при добавлении позиции в заказ (order-workspace.tsx), чтобы правильно
+// подписать tech_spec.type.
+export interface LightLettersDraft {
+  kind: 'light_letters_on_frame' | 'light_letters_on_backing';
+  input: CalculatorInput;
+  result: CalculatorResult;
+}
+
 export function calculate(input: CalculatorInput, config: LightLettersPricingConfig = DEFAULT_PRICING_CONFIG): CalculatorResult {
+  const backingFit =
+    input.backingWidthCm && input.backingHeightCm
+      ? findFittingTier(input.backingWidthCm, input.backingHeightCm, config.compositeSheetPrice)
+      : null;
+  const backingCost = backingFit?.cost ?? 0;
   const mainRow = calcRow({ text: input.mainText, heightMm: input.mainHeightMm }, input.depthMm, config);
   const hasAdditional = input.additionalText.trim().length > 0;
   const addRow = hasAdditional ? calcRow({ text: input.additionalText, heightMm: input.additionalHeightMm }, input.depthMm, config) : null;
@@ -251,7 +278,7 @@ export function calculate(input: CalculatorInput, config: LightLettersPricingCon
   const metalMeters = rows.reduce((s, r) => s + r.metalMeters, 0);
   const frame = input.frameType === 'none' ? 0 : calcFrameStepCost(metalMeters, config);
 
-  const material = letterManufacture + letterDesign + lighting + frame;
+  const material = letterManufacture + letterDesign + lighting + frame + backingCost;
   const production = Math.round((material * config.productionPct) / 100) * 100;
 
   // Монтаж / доставка
@@ -285,6 +312,8 @@ export function calculate(input: CalculatorInput, config: LightLettersPricingCon
     letterDesign,
     lighting,
     frame,
+    backing: backingCost,
+    backingFit,
     material,
     production: productionFinal,
     installDelivery: installDeliveryFinal,

@@ -74,8 +74,8 @@ export function PricingSettingsBoard() {
   return (
     <div className="max-w-3xl space-y-6 pb-24">
       <p className="text-sm text-muted-foreground">
-        Цены калькулятора «Световые буквы на каркасе» — единственного сейчас рабочего типа изделий.
-        Правки применяются сразу после сохранения, без деплоя.
+        Цены калькуляторов «Световые буквы на каркасе» и «Световые буквы на подложке» — сейчас
+        рабочих типов изделий. Правки применяются сразу после сохранения, без деплоя.
       </p>
 
       <Card>
@@ -226,6 +226,15 @@ export function PricingSettingsBoard() {
           <div className="grid grid-cols-2 gap-3">
             <NumberField label="Шаг, метров металла" value={config.frameStepMeters} onChange={(v) => setConfig({ ...config, frameStepMeters: v })} />
             <NumberField label="Цена за шаг, ₸" value={config.frameStepPrice} onChange={(v) => setConfig({ ...config, frameStepPrice: v })} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="space-y-3 pt-5">
+          <h2 className="font-semibold text-navy-900">Подложка (композит) — «Световые буквы на подложке»</h2>
+          <div className="max-w-xs">
+            <NumberField label="Цена листа 120×240 см, ₸" value={config.compositeSheetPrice} onChange={(v) => setConfig({ ...config, compositeSheetPrice: v })} />
           </div>
         </CardContent>
       </Card>
